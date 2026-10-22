@@ -39,6 +39,12 @@ func on_tick(delta: float) -> void:
 	var knockback := float(param("knockback", 1.5))
 	var muzzle := float(param("muzzle", 0.45))
 	var heat_per_shot := float(param("heat_per_shot", 0.0))
+	# Linked neighbours (heat sinks, reactors, gyros, sensor heads) modify us.
+	fire_rate *= asm.get_mod(part, "fire_rate_mult")
+	damage *= asm.get_mod(part, "damage_mult")
+	max_range *= asm.get_mod(part, "range_mult")
+	spread_deg *= asm.get_mod(part, "spread_mult")
+	heat_per_shot *= asm.get_mod(part, "heat_mult")
 	if robot.is_overheated:
 		fire_rate *= float(param("hot_fire_rate_mult", 1.0))
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="Script" path="res://scripts/levels/prototype_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/robot/robot_controller.gd" id="2_rc"]
@@ -19,6 +19,10 @@
 [ext_resource type="Resource" path="res://data/parts/loco_wheel.tres" id="17_wheel"]
 [ext_resource type="Resource" path="res://data/parts/gun_rivet.tres" id="18_rivet"]
 [ext_resource type="Shader" path="res://shaders/ps2_vertex.gdshader" id="19_ps2"]
+[ext_resource type="Resource" path="res://data/parts/frame_strut.tres" id="20_strut"]
+[ext_resource type="Resource" path="res://data/parts/melee_chain_sword.tres" id="21_sword"]
+[ext_resource type="Resource" path="res://data/parts/util_rotator.tres" id="22_rot"]
+[ext_resource type="Resource" path="res://data/parts/armor_plate.tres" id="23_armor"]
 
 [sub_resource type="Environment" id="Environment_arena"]
 background_mode = 1
@@ -52,7 +56,7 @@ height = 1.6
 
 [node name="PrototypeArena" type="Node3D"]
 script = ExtResource("1_arena")
-starter_pickups = Array[Resource("res://scripts/data/part_data.gd")]([ExtResource("16_gyro"), ExtResource("11_leg"), ExtResource("18_rivet"), ExtResource("17_wheel")])
+starter_pickups = Array[Resource("res://scripts/data/part_data.gd")]([ExtResource("20_strut"), ExtResource("20_strut"), ExtResource("11_leg"), ExtResource("11_leg"), ExtResource("21_sword"), ExtResource("22_rot"), ExtResource("23_armor"), ExtResource("16_gyro")])
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_arena")
@@ -86,8 +90,9 @@ shape = SubResource("CapsuleShape3D_robot")
 [node name="RobotAssembly" type="Node3D" parent="Robot"]
 script = ExtResource("3_ra")
 root_part_data = ExtResource("9_core")
-starting_parts = Array[Resource("res://scripts/data/part_data.gd")]([ExtResource("10_box"), ExtResource("11_leg"), ExtResource("11_leg"), ExtResource("12_nail")])
-starting_sockets = Array[StringName]([&"chassis", &"loco_l", &"loco_r", &"mount_top"])
+starting_parts = Array[Resource("res://scripts/data/part_data.gd")]([ExtResource("10_box"), ExtResource("11_leg"), ExtResource("11_leg"), ExtResource("12_nail"), ExtResource("12_nail")])
+starting_sockets = Array[StringName]([&"chassis", &"bottom_0_1", &"bottom_1_1", &"top_1_0", &"top_1_1"])
+starting_yaws = Array[int]([0, 0, 0, 0, 4])
 
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("4_cam")

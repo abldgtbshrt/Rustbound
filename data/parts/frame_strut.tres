@@ -1,0 +1,88 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_pi3d5"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_3r47n"]
+
+[sub_resource type="Resource" id="Resource_08fwo"]
+script = ExtResource("2_3r47n")
+marker_name = &"end"
+type = 1
+size = 2
+position = Vector3(0, 0, -1)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_koyge"]
+script = ExtResource("2_3r47n")
+marker_name = &"under"
+type = 3
+size = 2
+position = Vector3(0, -0.07, -0.85)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_fii1r"]
+script = ExtResource("2_3r47n")
+marker_name = &"side_l"
+type = 1
+size = 1
+position = Vector3(-0.07, 0, -0.5)
+rotation_degrees = Vector3(0, 90, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_oks7n"]
+script = ExtResource("2_3r47n")
+marker_name = &"side_r"
+type = 1
+size = 1
+position = Vector3(0.07, 0, -0.5)
+rotation_degrees = Vector3(0, -90, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[resource]
+script = ExtResource("1_pi3d5")
+id = &"frame_strut"
+display_name = "Strut"
+category = 7
+mass = 0.6
+power_draw = 0.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 8.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
+top_speed = 0.0
+thrust = 0.0
+grip = 1.0
+jump_force = 0.0
+mass_capacity = 0.0
+turn_rate_deg = 540.0
+attach_type = 1
+attach_size = 1
+sockets = Array[ExtResource("2_3r47n")]([SubResource("Resource_08fwo"), SubResource("Resource_koyge"), SubResource("Resource_fii1r"), SubResource("Resource_oks7n")])
+component_slots = 1
+behaviors = Array[Script]([])
+params = {}
+tags = PackedStringArray()
+drop_weight = 1.0
+scrap_value = 3
+visual_shape = 0
+visual_size = Vector3(0.14, 0.14, 1)
+visual_offset = Vector3(0, 0, -0.5)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.62, 0.55, 0.42, 1)

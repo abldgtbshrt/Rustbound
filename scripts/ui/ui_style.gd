@@ -20,6 +20,9 @@ const C_BAD := Color(1.0, 0.25, 0.2)
 
 const SOCKET_COLORS := [Color(0.75, 0.75, 0.75), Color(0.95, 0.6, 0.2), Color(0.3, 0.85, 0.95), Color(0.45, 0.95, 0.4)]
 const SOCKET_NAMES := ["Structural", "Mount", "Internal", "Locomotion"]
+const C_LINK := Color(0.35, 0.95, 1.0)
+const C_ARC := Color(1.0, 0.55, 0.25)
+const C_ARMOR := Color(0.6, 0.7, 0.95)
 
 
 static func panel(border: Color = BORDER) -> StyleBoxFlat:
@@ -91,8 +94,23 @@ static func describe_part(p: PartData) -> PackedStringArray:
 	if p.heat_per_sec > 0.0: out.append("+%.1f heat/s" % p.heat_per_sec)
 	if p.heat_capacity > 0.0: out.append("+%.0f heat capacity" % p.heat_capacity)
 	if p.heat_dissipation > 0.0: out.append("+%.0f cooling/s" % p.heat_dissipation)
-	if p.params.has("damage"):
+	if p.params.has("reach"):
+		out.append("melee %.0f dmg every %.1fs, reach %.1f m" % [float(p.params["damage"]), float(p.params.get("swing_time", 0.5)), float(p.params["reach"])])
+	elif p.params.has("damage"):
 		out.append("%.0f dmg x %.1f/s, range %.0f" % [float(p.params["damage"]), float(p.params.get("fire_rate", 1.0)), float(p.params.get("range", 0.0))])
+	if p.params.has("arc_deg"):
+		out.append("%.0f° arc in the direction it faces" % float(p.params["arc_deg"]))
+	if p.armor_block > 0.0:
+		out.append("blocks %d%% of hits from a %.0f° arc it faces" % [int(p.armor_block * 100.0), p.armor_arc_deg])
+	if float(p.params.get("stomp", 0.0)) > 0.0: out.append("stomps on landing (heavier = harder)")
+	if float(p.params.get("ram", 0.0)) > 0.0: out.append("rams enemies (faster = harder)")
+	if float(p.params.get("crush", 0.0)) > 0.0: out.append("crushes small enemies")
+	if p.tags.has("leg"): out.append("each leg past 2: +stability, -jump")
+	if float(p.params.get("turn_rate_mult", 1.0)) != 1.0: out.append("+%d%% turn speed" % int((float(p.params["turn_rate_mult"]) - 1.0) * 100.0))
+	if p.params.has("recover_pulse"): out.append("quick knockdown recovery + shockwave")
+	if p.params.has("spin_deg_per_sec"): out.append("spins whatever is mounted on it")
+	for k in p.neighbor_mods.keys():
+		out.append("linked parts: %s x%.2f" % [String(k).trim_suffix("_mult").replace("_", " "), float(p.neighbor_mods[k])])
 	if float(p.params.get("heat_per_shot", 0.0)) > 0.0:
 		out.append("%.1f heat/shot" % float(p.params["heat_per_shot"]))
 	if not p.sockets.is_empty():

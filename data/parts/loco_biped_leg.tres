@@ -1,18 +1,21 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_0igr8"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_kexoo"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_lbl7j"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_8ldf2"]
 
-[sub_resource type="Resource" id="Resource_rx3ut"]
-script = ExtResource("2_kexoo")
+[sub_resource type="Resource" id="Resource_gy5al"]
+script = ExtResource("2_8ldf2")
 marker_name = &"mount_shin"
 type = 1
 size = 1
 position = Vector3(0, -0.35, -0.25)
 rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("1_0igr8")
+script = ExtResource("1_lbl7j")
 id = &"loco_biped_leg"
 display_name = "Biped Leg"
 category = 2
@@ -27,6 +30,9 @@ pickup_radius = 0.0
 stability = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 7.0
 thrust = 32.0
 grip = 0.85
@@ -35,11 +41,13 @@ mass_capacity = 6.0
 turn_rate_deg = 540.0
 attach_type = 3
 attach_size = 1
-sockets = Array[ExtResource("2_kexoo")]([SubResource("Resource_rx3ut")])
+sockets = Array[ExtResource("2_8ldf2")]([SubResource("Resource_gy5al")])
 component_slots = 1
 behaviors = Array[Script]([])
-params = {}
-tags = PackedStringArray()
+params = {
+"stomp": 1.0
+}
+tags = PackedStringArray("leg")
 drop_weight = 1.0
 scrap_value = 5
 visual_shape = 0

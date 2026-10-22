@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_7new5"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_4kmfq"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_mdm6a"]
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_5iqfs"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_x57pk"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_0otpv"]
 
 [resource]
-script = ExtResource("2_4kmfq")
+script = ExtResource("2_x57pk")
 id = &"gun_nail"
 display_name = "Nailgun"
 category = 3
@@ -20,6 +20,9 @@ pickup_radius = 0.0
 stability = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -28,11 +31,11 @@ mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 1
 attach_size = 1
-sockets = Array[ExtResource("3_mdm6a")]([])
+sockets = Array[ExtResource("3_0otpv")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_7new5")])
+behaviors = Array[Script]([ExtResource("1_5iqfs")])
 params = {
-"arc_deg": 200.0,
+"arc_deg": 120.0,
 "damage": 9.0,
 "fire_rate": 4.0,
 "heat_per_shot": 1.5,

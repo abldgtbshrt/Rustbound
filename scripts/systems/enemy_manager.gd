@@ -24,6 +24,8 @@ var vel := PackedVector3Array()
 var hp := PackedFloat32Array()
 var flash := PackedFloat32Array()
 var type_idx := PackedInt32Array()
+## Per-enemy timer the robot uses to rate-limit ram hits.
+var cooldown := PackedFloat32Array()
 
 var _grid: Dictionary = {} # Vector2i -> PackedInt32Array
 var _spawn_accum := 0.0
@@ -40,6 +42,7 @@ func _ready() -> void:
 	hp.resize(max_enemies)
 	flash.resize(max_enemies)
 	type_idx.resize(max_enemies)
+	cooldown.resize(max_enemies)
 
 	var mesh := PrismMesh.new() # wedge-shaped scrap bugs
 	mesh.size = Vector3(1.0, 1.0, 1.0)
@@ -81,6 +84,7 @@ func spawn(type_index: int, at: Vector3) -> int:
 	vel[i] = Vector3.ZERO
 	hp[i] = t.hp
 	flash[i] = 0.0
+	cooldown[i] = 0.0
 	type_idx[i] = type_index
 	return i
 
@@ -116,6 +120,23 @@ func damage(i: int, amount: float, knockback: Vector3 = Vector3.ZERO) -> bool:
 		_on_killed(i)
 		return true
 	return false
+
+
+## Damages every live enemy within `radius` (XZ, edge-inclusive) of `origin`,
+## with 50% falloff at the edge, pushing them outward. Returns hits.
+func damage_radius(origin: Vector3, radius: float, amount: float, knockback: float = 0.0) -> int:
+	var hits := 0
+	for i in query_radius(origin, radius + 1.0):
+		var to := pos[i] - origin
+		to.y = 0.0
+		var d := to.length()
+		var reach := radius + get_radius(i)
+		if d > reach:
+			continue
+		var falloff := lerpf(1.0, 0.5, clampf(d / reach, 0.0, 1.0))
+		damage(i, amount * falloff, (to / maxf(d, 0.01)) * knockback)
+		hits += 1
+	return hits
 
 
 ## Indices of live enemies whose centers are within `radius` (XZ) of `origin`.
@@ -232,12 +253,17 @@ func _simulate(delta: float) -> void:
 		p.z = clampf(p.z, -arena_half_extent, arena_half_extent)
 		p.y = t.radius
 
-		# Contact damage, and don't overlap the robot.
+		# Contact: the robot decides (ram, crush, armor), then no overlap.
 		var contact := t.radius + robot_r
 		if chase and d < contact:
-			robot.take_damage(t.contact_dps * delta)
+			pos[i] = p
+			vel[i] = v
+			robot.handle_enemy_contact(self, i, -to, delta)
+			v = vel[i] # keep any ram knockback
 			if d > 0.001:
 				p -= to / d * (contact - d)
+		if cooldown[i] > 0.0:
+			cooldown[i] -= delta
 
 		pos[i] = p
 		vel[i] = v
@@ -309,6 +335,7 @@ func _compact() -> void:
 			vel[i] = vel[count]
 			hp[i] = hp[count]
 			flash[i] = flash[count]
+			cooldown[i] = cooldown[count]
 			type_idx[i] = type_idx[count]
 		else:
 			i += 1

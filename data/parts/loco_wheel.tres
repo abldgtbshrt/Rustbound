@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_othv8"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_rfa2x"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_re7mq"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_hqh4g"]
 
 [resource]
-script = ExtResource("1_othv8")
+script = ExtResource("1_re7mq")
 id = &"loco_wheel"
 display_name = "Scrap Wheel"
 category = 2
@@ -19,6 +19,9 @@ pickup_radius = 0.0
 stability = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 11.0
 thrust = 22.0
 grip = 0.35
@@ -27,10 +30,12 @@ mass_capacity = 5.0
 turn_rate_deg = 360.0
 attach_type = 3
 attach_size = 1
-sockets = Array[ExtResource("2_rfa2x")]([])
+sockets = Array[ExtResource("2_hqh4g")]([])
 component_slots = 1
 behaviors = Array[Script]([])
-params = {}
+params = {
+"ram": 0.5
+}
 tags = PackedStringArray()
 drop_weight = 0.9
 scrap_value = 5
