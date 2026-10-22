@@ -19,6 +19,21 @@ enum SocketType {
 	LOCOMOTION,
 }
 
+enum Rarity {
+	COMMON,
+	RARE,
+	LEGENDARY,
+}
+
+## Which drive a locomotion part provides. Drives don't blend: the robot runs
+## one drive mode, chosen from what's on the chassis (see LocomotionProfile).
+enum Drive {
+	NONE,
+	LEG,
+	WHEEL,
+	TREAD,
+}
+
 enum VisualShape {
 	BOX,
 	CYLINDER,
@@ -66,6 +81,7 @@ enum VisualShape {
 @export var neighbor_mods: Dictionary = {}
 
 @export_group("Locomotion")
+@export var drive: Drive = Drive.NONE
 @export var top_speed: float = 0.0
 ## Horizontal force. Acceleration = total thrust / total mass.
 @export var thrust: float = 0.0
@@ -98,6 +114,9 @@ enum VisualShape {
 @export var upgrade_per_tier: Dictionary = {}
 
 @export_group("Loot")
+@export var rarity: Rarity = Rarity.COMMON
+## Unique parts stop dropping / being offered once you own one this run.
+@export var unique: bool = false
 ## 0 = never drops from enemies.
 @export var drop_weight: float = 1.0
 @export var scrap_value: int = 5
@@ -158,6 +177,14 @@ func base_value(key: String) -> float:
 		return float(params[key])
 	var v: Variant = get(key)
 	return float(v) if (v is float or v is int) else 0.0
+
+
+static func rarity_name(r: int) -> String:
+	return ["Common", "Rare", "Legendary"][clampi(r, 0, 2)]
+
+
+static func rarity_color(r: int) -> Color:
+	return [Color(0.75, 0.72, 0.68), Color(0.35, 0.65, 1.0), Color(1.0, 0.78, 0.25)][clampi(r, 0, 2)]
 
 
 static func tier_name(tier: int) -> String:

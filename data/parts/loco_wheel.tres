@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_nid4s"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_i560d"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_gl2ce"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_x1b0w"]
 
 [resource]
-script = ExtResource("1_nid4s")
+script = ExtResource("1_gl2ce")
 id = &"loco_wheel"
 display_name = "Scrap Wheel"
 category = 2
@@ -23,6 +23,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 2
 top_speed = 11.0
 thrust = 22.0
 grip = 0.35
@@ -32,7 +33,7 @@ turn_rate_deg = 360.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_i560d")]([])
+sockets = Array[ExtResource("2_x1b0w")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {
@@ -46,6 +47,8 @@ upgrade_per_tier = {
 "thrust": 0.12,
 "top_speed": 0.08
 }
+rarity = 0
+unique = false
 drop_weight = 0.9
 scrap_value = 5
 visual_shape = 1

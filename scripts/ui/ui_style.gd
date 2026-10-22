@@ -84,6 +84,9 @@ static func describe_part(p: PartData) -> PackedStringArray:
 	for t in p.alt_attach_types:
 		types.append(SOCKET_NAMES[t])
 	out.append("%s  |  %s socket, size %d" % [PartData.Category.keys()[p.category].capitalize(), " or ".join(types), p.attach_size])
+	out.append(PartData.rarity_name(p.rarity) + ("  -  unique: one per run" if p.unique else ""))
+	if p.drive != PartData.Drive.NONE:
+		out.append(["", "Drive: legs (Walker). Put wheels/treads on its foot for Skater/Stomper", "Drive: wheels (Rover)", "Drive: treads (Tank)"][p.drive])
 	var tier := RunState.get_tier(p.id)
 	if tier > 1:
 		out.append("%s (all copies)" % PartData.tier_name(tier))
@@ -113,16 +116,21 @@ static func describe_part(p: PartData) -> PackedStringArray:
 	if float(p.params.get("stomp", 0.0)) > 0.0: out.append("stomps on landing (heavier = harder)")
 	if float(p.params.get("ram", 0.0)) > 0.0: out.append("rams enemies (faster = harder)")
 	if float(p.params.get("crush", 0.0)) > 0.0: out.append("crushes small enemies")
-	if p.tags.has("leg"): out.append("each leg past 2: +stability, -jump")
+	if p.drive == PartData.Drive.LEG: out.append("each leg past 2: +stability, -jump")
 	if float(p.params.get("turn_rate_mult", 1.0)) != 1.0: out.append("+%d%% turn speed" % int((float(p.params["turn_rate_mult"]) - 1.0) * 100.0))
 	if p.params.has("recover_pulse"): out.append("quick knockdown recovery + shockwave")
 	if p.params.has("spin_deg_per_sec"): out.append("spins whatever is mounted on it")
+	if p.params.has("pull_range"): out.append("pulls small enemies in its arc toward it; +%.0f m scrap pickup" % p.pickup_radius)
+	if p.params.has("chains"): out.append("zaps the nearest enemy, arcs to %d more" % int(p.params["chains"]))
+	if p.params.has("min_range") and p.params.has("flight_time"): out.append("lobs shells into crowds %.0f-%.0f m away" % [float(p.params["min_range"]), float(p.params["range"])])
+	if p.params.has("shield_arc_deg"): out.append("energy shield: hits from its %.0f° arc drain battery, not HP" % float(p.params["shield_arc_deg"]))
+	if p.params.has("heal_per_scrap"): out.append("bites what's in front; eats scrap to repair")
 	for k in p.neighbor_mods.keys():
 		out.append("linked parts: %s x%.2f" % [String(k).trim_suffix("_mult").replace("_", " "), float(p.neighbor_mods[k])])
 	if float(p.params.get("heat_per_shot", 0.0)) > 0.0:
 		out.append("%.1f heat/shot" % float(p.params["heat_per_shot"]))
 	if not p.sockets.is_empty():
 		out.append("%d socket(s) of its own" % p.sockets.size())
-	if p.tags.has("anchored"):
+	if p.drive == PartData.Drive.TREAD:
 		out.append("resists recoil")
 	return out

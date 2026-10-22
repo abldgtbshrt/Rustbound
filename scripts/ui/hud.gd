@@ -19,6 +19,7 @@ var _debug: Label
 var _rows: Dictionary = {} # name -> { bar, value }
 var _log: Array[Dictionary] = [] # { text, t }
 var _debug_was_down := false
+var _last_conflict := ""
 
 
 func _ready() -> void:
@@ -160,7 +161,11 @@ func _process(delta: float) -> void:
 	_hp_text.text = " %d / %d" % [int(robot.hp), int(robot.max_hp)]
 	_xp_bar.max_value = float(RunState.xp_to_next())
 	_xp_bar.value = float(RunState.xp)
-	_lv_text.text = " LV %d" % RunState.level
+	_lv_text.text = " LV %d   %s" % [RunState.level, a.locomotion.mode_name().to_upper()]
+	if a.locomotion.conflict != _last_conflict:
+		_last_conflict = a.locomotion.conflict
+		if _last_conflict != "":
+			_push("Conflicting drive: " + _last_conflict)
 
 	var t := int(RunState.elapsed_time)
 	var enemies := RunState.enemies.alive_count() if RunState.enemies != null else 0
@@ -205,7 +210,7 @@ func _process(delta: float) -> void:
 	_hint.text = ("[Tab] build  -  %d part(s) on bench" % bench) if bench > 0 and not building else ""
 
 	if _debug.visible:
-		var loco := "ball (core only)" if prof.is_ball else "%d part(s)" % prof.part_count
+		var loco := "%s, %d part(s)%s" % [prof.mode_name(), prof.part_count, (" [" + prof.conflict + "]") if prof.conflict != "" else ""]
 		_debug.text = "\n".join([
 			"parts %d   locomotion %s   speed %.1f m/s   grip %.2f   jump %s" % [a.part_count, loco, robot.get_top_speed(), prof.grip, ("%.1f" % prof.jump_force) if prof.can_jump else "no"],
 			"CoM h %.2f side %+.2f   footprint %.2f   height %.2f   gyro +%d%%" % [a.center_of_mass.y, a.center_of_mass.x, a.footprint, a.height, int(a.stability * 100.0)],

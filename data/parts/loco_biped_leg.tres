@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="PartData" load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_lsjio"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_nbra8"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_gdjwj"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_nwbkw"]
 
-[sub_resource type="Resource" id="Resource_w1tm6"]
-script = ExtResource("2_nbra8")
+[sub_resource type="Resource" id="Resource_ctha2"]
+script = ExtResource("2_nwbkw")
 marker_name = &"mount_shin"
 type = 1
 size = 1
@@ -14,8 +14,19 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
+[sub_resource type="Resource" id="Resource_4g2v4"]
+script = ExtResource("2_nwbkw")
+marker_name = &"foot"
+type = 3
+size = 2
+position = Vector3(0, -0.45, 0)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
 [resource]
-script = ExtResource("1_lsjio")
+script = ExtResource("1_gdjwj")
 id = &"loco_biped_leg"
 display_name = "Biped Leg"
 category = 2
@@ -34,6 +45,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 1
 top_speed = 7.0
 thrust = 32.0
 grip = 0.85
@@ -43,7 +55,7 @@ turn_rate_deg = 540.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_nbra8")]([SubResource("Resource_w1tm6")])
+sockets = Array[ExtResource("2_nwbkw")]([SubResource("Resource_ctha2"), SubResource("Resource_4g2v4")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {
@@ -58,6 +70,8 @@ upgrade_per_tier = {
 "thrust": 0.12,
 "top_speed": 0.06
 }
+rarity = 0
+unique = false
 drop_weight = 1.0
 scrap_value = 5
 visual_shape = 0

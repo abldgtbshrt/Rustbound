@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_wfhbo"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_raqau"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_xaxjn"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_j3yba"]
 
 [resource]
-script = ExtResource("1_wfhbo")
+script = ExtResource("1_xaxjn")
 id = &"mod_battery"
 display_name = "Battery Pack"
 category = 4
@@ -23,6 +23,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -32,7 +33,7 @@ turn_rate_deg = 540.0
 attach_type = 2
 alt_attach_types = Array[int]([1])
 attach_size = 1
-sockets = Array[ExtResource("2_raqau")]([])
+sockets = Array[ExtResource("2_j3yba")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
@@ -40,6 +41,8 @@ tags = PackedStringArray()
 upgrade_per_tier = {
 "energy_capacity": 0.35
 }
+rarity = 0
+unique = false
 drop_weight = 0.8
 scrap_value = 5
 visual_shape = 0

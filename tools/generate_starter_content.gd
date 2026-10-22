@@ -124,9 +124,14 @@ func _parts() -> Array[PartData]:
 	leg.turn_rate_deg = 540.0
 	leg.drop_weight = 1.0
 	leg.tags = PackedStringArray(["leg"])
+	leg.drive = PartData.Drive.LEG
 	leg.params = {"stomp": 1.0} # slam on landing
 	_vis(leg, PartData.VisualShape.BOX, Vector3(0.25, 0.8, 0.45), Vector3(0, -0.4, 0), Color(0.4, 0.45, 0.5))
-	leg.sockets = [_sock("mount_shin", MOUNT, Vector3(0.0, -0.35, -0.25), 1)]
+	# The foot takes a wheel (Skater) or a tread (Stomper): deliberate hybrids.
+	leg.sockets = [
+		_sock("mount_shin", MOUNT, Vector3(0.0, -0.35, -0.25), 1),
+		_sock("foot", LOCO, Vector3(0.0, -0.45, 0.0), 2),
+	]
 	leg.upgrade_per_tier = {"thrust": 0.12, "top_speed": 0.06, "mass_capacity": 0.15, "jump_force": 0.06, "stomp": 0.25, "hp": 0.3}
 	out.append(leg)
 
@@ -141,6 +146,7 @@ func _parts() -> Array[PartData]:
 	wheel.turn_rate_deg = 360.0
 	wheel.drop_weight = 0.9
 	wheel.params = {"ram": 0.5} # ram damage scales with speed
+	wheel.drive = PartData.Drive.WHEEL
 	_vis(wheel, PartData.VisualShape.CYLINDER, Vector3(0.8, 0.3, 0.8), Vector3(0, -0.4, 0), Color(0.2, 0.2, 0.22), Vector3(0, 0, 90))
 	wheel.upgrade_per_tier = {"thrust": 0.12, "top_speed": 0.08, "mass_capacity": 0.15, "ram": 0.3, "hp": 0.3}
 	out.append(wheel)
@@ -156,6 +162,7 @@ func _parts() -> Array[PartData]:
 	tread.drop_weight = 0.6
 	tread.tags = PackedStringArray(["anchored"])
 	tread.params = {"crush": 1.0} # grinds small enemies
+	tread.drive = PartData.Drive.TREAD
 	_vis(tread, PartData.VisualShape.BOX, Vector3(0.45, 0.8, 1.3), Vector3(0, -0.4, 0), Color(0.3, 0.3, 0.28))
 	tread.upgrade_per_tier = {"thrust": 0.12, "mass_capacity": 0.2, "crush": 0.3, "hp": 0.3}
 	out.append(tread)
@@ -187,6 +194,7 @@ func _parts() -> Array[PartData]:
 	rivet.params["arc_deg"] = 70.0
 	_vis(rivet, PartData.VisualShape.BOX, Vector3(0.3, 0.3, 0.9), Vector3(0, 0.18, -0.3), Color(0.6, 0.35, 0.25))
 	rivet.upgrade_per_tier = {"damage": 0.3, "fire_rate": 0.1, "hp": 0.3}
+	rivet.rarity = PartData.Rarity.RARE
 	out.append(rivet)
 
 	# --- Modules / head / armor / adapter ------------------------------------
@@ -201,6 +209,7 @@ func _parts() -> Array[PartData]:
 	gyro.drop_weight = 0.8
 	_vis(gyro, PartData.VisualShape.SPHERE, Vector3(0.3, 0.3, 0.3), Vector3.ZERO, Color(0.3, 0.8, 0.9))
 	gyro.upgrade_per_tier = {"stability": 0.3, "recover_pulse": 0.4, "turn_rate_mult": 0.05}
+	gyro.rarity = PartData.Rarity.RARE
 	out.append(gyro)
 
 	var reactor := _part("mod_reactor", "Reactor", PartData.Category.MODULE, INTERNAL, 1)
@@ -243,14 +252,8 @@ func _parts() -> Array[PartData]:
 	head.drop_weight = 0.6
 	_vis(head, PartData.VisualShape.BOX, Vector3(0.4, 0.3, 0.35), Vector3(0, 0.15, 0), Color(0.85, 0.8, 0.3))
 	head.upgrade_per_tier = {"pickup_radius": 0.3, "cpu_output": 0.5}
+	head.rarity = PartData.Rarity.RARE
 	out.append(head)
-
-	var adapter := _part("adapter_mount_loco", "Mount-to-Leg Adapter", PartData.Category.ADAPTER, MOUNT, 1)
-	adapter.mass = 0.3
-	adapter.drop_weight = 0.5
-	_vis(adapter, PartData.VisualShape.BOX, Vector3(0.25, 0.25, 0.25), Vector3.ZERO, Color(0.7, 0.4, 0.7))
-	adapter.sockets = [_sock("loco", LOCO, Vector3(0.0, -0.15, 0.0), 1)]
-	out.append(adapter)
 
 	# --- Power & mobility -------------------------------------------------------
 	var battery := _part("mod_battery", "Battery Pack", PartData.Category.MODULE, INTERNAL, 1)
@@ -308,22 +311,6 @@ func _parts() -> Array[PartData]:
 	mast.upgrade_per_tier = {"hp": 0.4}
 	out.append(mast)
 
-	var hub := _part("frame_hub", "Junction Hub", PartData.Category.FRAME, MOUNT, 1)
-	hub.mass = 0.5
-	hub.hp = 10.0
-	hub.drop_weight = 0.8
-	hub.scrap_value = 3
-	_vis(hub, PartData.VisualShape.BOX, Vector3(0.3, 0.3, 0.3), Vector3(0, 0, -0.15), Color(0.68, 0.6, 0.45))
-	hub.sockets = [
-		_sock("front", MOUNT, Vector3(0.0, 0.0, -0.3), 2),
-		_sock("left", MOUNT, Vector3(-0.15, 0.0, -0.15), 2, Vector3(0, 90, 0)),
-		_sock("right", MOUNT, Vector3(0.15, 0.0, -0.15), 2, Vector3(0, -90, 0)),
-		_sock("top", MOUNT, Vector3(0.0, 0.15, -0.15), 2),
-		_sock("under", LOCO, Vector3(0.0, -0.15, -0.15), 2),
-	]
-	hub.upgrade_per_tier = {"hp": 0.4}
-	out.append(hub)
-
 	var rotator := _part("util_rotator", "Rotator", PartData.Category.MOUNT, MOUNT, 2)
 	rotator.mass = 1.2
 	rotator.hp = 10.0
@@ -338,6 +325,7 @@ func _parts() -> Array[PartData]:
 		_sock("rim_r", MOUNT, Vector3(0.3, 0.08, 0.0), 1, Vector3(0, -90, 0)),
 	]
 	rotator.upgrade_per_tier = {"spin_deg_per_sec": 0.2, "hp": 0.3}
+	rotator.rarity = PartData.Rarity.RARE
 	out.append(rotator)
 
 	var sword := _part("melee_chain_sword", "Chain Sword Arm", PartData.Category.MOUNT, MOUNT, 2)
@@ -350,7 +338,72 @@ func _parts() -> Array[PartData]:
 		"knockback": 5.0, "heat_per_swing": 2.0}
 	_vis(sword, PartData.VisualShape.BOX, Vector3(0.14, 0.1, 1.4), Vector3(0, 0.1, -0.75), Color(0.75, 0.3, 0.25))
 	sword.upgrade_per_tier = {"damage": 0.3, "swing_time": -0.08, "reach": 0.05, "hp": 0.3}
+	sword.rarity = PartData.Rarity.RARE
 	out.append(sword)
+
+	# --- Signature parts: one distinct mechanic each, one per run -------------
+	var magnet := _part("sig_magnet_arm", "Magnet Arm", PartData.Category.MOUNT, MOUNT, 2)
+	magnet.rarity = PartData.Rarity.RARE
+	magnet.unique = true
+	magnet.mass = 1.6
+	magnet.hp = 12.0
+	magnet.power_draw = 2.0
+	magnet.pickup_radius = 6.0
+	magnet.behaviors = [load("res://scripts/behaviors/signature/magnet_arm.gd")]
+	magnet.params = {"pull_range": 9.0, "arc_deg": 100.0, "pull_speed": 6.0, "max_enemy_radius": 0.45}
+	magnet.upgrade_per_tier = {"pull_range": 0.12, "pull_speed": 0.2, "pickup_radius": 0.25}
+	_vis(magnet, PartData.VisualShape.BOX, Vector3(0.5, 0.3, 0.7), Vector3(0, 0.12, -0.35), Color(0.75, 0.2, 0.2))
+	out.append(magnet)
+
+	var tesla := _part("sig_tesla_coil", "Tesla Coil", PartData.Category.MOUNT, MOUNT, 1)
+	tesla.rarity = PartData.Rarity.RARE
+	tesla.unique = true
+	tesla.mass = 1.2
+	tesla.hp = 8.0
+	tesla.power_draw = 3.0
+	tesla.behaviors = [load("res://scripts/behaviors/signature/tesla_coil.gd")]
+	tesla.params = {"damage": 14.0, "range": 7.0, "chains": 4, "chain_range": 3.5, "interval": 0.9, "heat_per_zap": 1.5}
+	tesla.upgrade_per_tier = {"damage": 0.25, "chains": 0.25, "range": 0.08}
+	_vis(tesla, PartData.VisualShape.CYLINDER, Vector3(0.22, 0.6, 0.22), Vector3(0, 0.3, 0), Color(0.55, 0.85, 1.0))
+	out.append(tesla)
+
+	var mortar := _part("sig_mortar", "Mortar", PartData.Category.MOUNT, MOUNT, 2)
+	mortar.rarity = PartData.Rarity.RARE
+	mortar.unique = true
+	mortar.mass = 2.4
+	mortar.hp = 14.0
+	mortar.power_draw = 2.0
+	mortar.behaviors = [load("res://scripts/behaviors/signature/mortar.gd")]
+	mortar.params = {"damage": 35.0, "radius": 2.5, "min_range": 6.0, "range": 20.0, "arc_deg": 160.0,
+		"interval": 1.6, "flight_time": 1.0, "heat_per_shot": 4.0}
+	mortar.upgrade_per_tier = {"damage": 0.25, "radius": 0.1, "interval": -0.08}
+	_vis(mortar, PartData.VisualShape.CYLINDER, Vector3(0.36, 0.5, 0.36), Vector3(0, 0.25, 0), Color(0.4, 0.45, 0.35), Vector3(-30, 0, 0))
+	out.append(mortar)
+
+	var shield := _part("sig_shield_projector", "Shield Projector", PartData.Category.MOUNT, MOUNT, 2)
+	shield.rarity = PartData.Rarity.LEGENDARY
+	shield.unique = true
+	shield.mass = 1.8
+	shield.hp = 10.0
+	shield.power_draw = 3.0
+	shield.behaviors = [load("res://scripts/behaviors/signature/shield_projector.gd")]
+	# Hits from its 120° arc drain 0.6 battery per point instead of HP.
+	shield.params = {"shield_arc_deg": 120.0, "shield_radius": 2.2, "energy_per_damage": 0.6, "push": 5.0}
+	shield.upgrade_per_tier = {"energy_per_damage": -0.12, "push": 0.2}
+	_vis(shield, PartData.VisualShape.BOX, Vector3(0.4, 0.4, 0.2), Vector3(0, 0.2, -0.1), Color(0.3, 0.8, 0.95))
+	out.append(shield)
+
+	var maw := _part("sig_scrap_maw", "Scrap Maw", PartData.Category.MOUNT, MOUNT, 2)
+	maw.rarity = PartData.Rarity.RARE
+	maw.unique = true
+	maw.mass = 1.8
+	maw.hp = 20.0
+	maw.behaviors = [load("res://scripts/behaviors/signature/scrap_maw.gd")]
+	maw.params = {"bite_damage": 10.0, "bite_range": 1.4, "arc_deg": 100.0, "bite_interval": 0.35,
+		"heal_per_bite": 2.0, "heal_per_scrap": 1.5}
+	maw.upgrade_per_tier = {"bite_damage": 0.3, "heal_per_bite": 0.3, "heal_per_scrap": 0.25}
+	_vis(maw, PartData.VisualShape.BOX, Vector3(0.55, 0.35, 0.5), Vector3(0, 0.15, -0.25), Color(0.6, 0.55, 0.3))
+	out.append(maw)
 
 	return out
 
@@ -367,7 +420,7 @@ func _enemies() -> Array[EnemyData]:
 	skitter.radius = 0.35
 	skitter.color = Color(0.85, 0.45, 0.2)
 	skitter.scrap_value = 1
-	skitter.part_drop_chance = 0.015
+	skitter.part_drop_chance = 0.003
 	skitter.spawn_weight = 1.0
 	out.append(skitter)
 
@@ -380,7 +433,7 @@ func _enemies() -> Array[EnemyData]:
 	dart.radius = 0.25
 	dart.color = Color(0.95, 0.85, 0.25)
 	dart.scrap_value = 1
-	dart.part_drop_chance = 0.01
+	dart.part_drop_chance = 0.002
 	dart.spawn_weight = 0.3
 	dart.min_time = 90.0
 	dart.weight_per_minute = 0.1
@@ -395,7 +448,7 @@ func _enemies() -> Array[EnemyData]:
 	brute.radius = 0.8
 	brute.color = Color(0.55, 0.12, 0.12)
 	brute.scrap_value = 4
-	brute.part_drop_chance = 0.12
+	brute.part_drop_chance = 0.05
 	brute.spawn_weight = 0.05
 	brute.min_time = 45.0
 	brute.weight_per_minute = 0.25

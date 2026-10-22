@@ -44,6 +44,7 @@ var energy_capacity: float = 0.0
 var jet_thrust: float = 0.0
 var jet_energy_per_sec: float = 0.0
 var jet_parts: Array[PartInstance] = []
+var shield_parts: Array[PartInstance] = []
 var locomotion: LocomotionProfile = LocomotionProfile.new()
 var part_count: int = 0
 ## Horizontal moment of inertia about the center of mass. Mass far from the
@@ -293,6 +294,7 @@ func recompute() -> void:
 	jet_thrust = 0.0
 	jet_energy_per_sec = 0.0
 	jet_parts.clear()
+	shield_parts.clear()
 	part_count = 0
 	inertia = 0.0
 	turn_factor = 1.0
@@ -358,6 +360,8 @@ func recompute() -> void:
 		heat_capacity += inst.stat("heat_capacity", d.heat_capacity)
 		heat_dissipation += inst.stat("heat_dissipation", d.heat_dissipation)
 		energy_capacity += inst.stat("energy_capacity", d.energy_capacity)
+		if d.params.has("shield_arc_deg"):
+			shield_parts.append(inst)
 		if d.params.has("jet_thrust"):
 			jet_parts.append(inst)
 			jet_thrust += inst.stat("jet_thrust", float(d.params["jet_thrust"]))
@@ -403,7 +407,7 @@ func recompute() -> void:
 		support_min = Vector2(center_of_mass.x - 0.15, center_of_mass.z - 0.15)
 		support_max = Vector2(center_of_mass.x + 0.15, center_of_mass.z + 0.15)
 	footprint = minf(support_max.x - support_min.x, support_max.y - support_min.y)
-	locomotion = LocomotionProfile.blend(loco_entries, center_of_mass)
+	locomotion = LocomotionProfile.resolve(loco_entries, center_of_mass)
 	stability += locomotion.extra_leg_stability()
 
 	assembly_changed.emit()

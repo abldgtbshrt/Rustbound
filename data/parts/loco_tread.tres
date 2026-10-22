@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_3rixc"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_08lcq"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_4d5kl"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_o81u4"]
 
 [resource]
-script = ExtResource("1_3rixc")
+script = ExtResource("1_4d5kl")
 id = &"loco_tread"
 display_name = "Tread Unit"
 category = 2
@@ -23,6 +23,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 3
 top_speed = 5.0
 thrust = 45.0
 grip = 1.0
@@ -32,7 +33,7 @@ turn_rate_deg = 200.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("2_08lcq")]([])
+sockets = Array[ExtResource("2_o81u4")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {
@@ -45,6 +46,8 @@ upgrade_per_tier = {
 "mass_capacity": 0.2,
 "thrust": 0.12
 }
+rarity = 0
+unique = false
 drop_weight = 0.6
 scrap_value = 5
 visual_shape = 0

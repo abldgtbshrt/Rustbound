@@ -84,8 +84,9 @@ func spawn_part(at: Vector3, data: PartData) -> Node3D:
 	beam_mesh.radial_segments = 4
 	beam.mesh = beam_mesh
 	beam.position.y = 2.0
-	var beam_mat := PartVisuals.material_for(data.visual_color).duplicate() as ShaderMaterial
-	beam_mat.set_shader_parameter("emission_color", Vector3(data.visual_color.r, data.visual_color.g, data.visual_color.b))
+	var rc := PartData.rarity_color(data.rarity)
+	var beam_mat := PartVisuals.material_for(rc).duplicate() as ShaderMaterial
+	beam_mat.set_shader_parameter("emission_color", Vector3(rc.r, rc.g, rc.b))
 	beam.material_override = beam_mat
 	node.add_child(beam)
 
@@ -97,6 +98,7 @@ func spawn_part(at: Vector3, data: PartData) -> Node3D:
 	label.font_size = 32
 	label.outline_size = 8
 	label.no_depth_test = true
+	label.modulate = rc
 	node.add_child(label)
 
 	add_child(node)
@@ -169,8 +171,9 @@ func _update_parts(delta: float, robot: RobotController) -> void:
 
 
 func _collect_part(data: PartData, _robot: RobotController) -> void:
-	# Walking over a part you already own upgrades it (duplicates merge).
-	var result := RunState.acquire_part(data, true, true)
+	# Walking over a part you already own upgrades it (duplicates merge);
+	# anything new goes to the bench to be placed by hand in build mode.
+	var result := RunState.acquire_part(data, false, true)
 	EventBus.part_picked_up.emit(data, result == RunState.Acquired.ATTACHED)
 
 
