@@ -9,6 +9,7 @@ enum Category {
 	MODULE,
 	HEAD,
 	ADAPTER,
+	FRAME,
 }
 
 enum SocketType {
@@ -50,6 +51,18 @@ enum VisualShape {
 ## Extra heat shed per second.
 @export var heat_dissipation: float = 0.0
 
+@export_group("Armor")
+## Fraction of incoming damage blocked when the hit comes from inside this
+## part's facing arc. Several plates covering the same side stack.
+@export_range(0.0, 0.95) var armor_block: float = 0.0
+@export var armor_arc_deg: float = 120.0
+
+@export_group("Links")
+## Multipliers this part gives to every part linked to it (touching it, or its
+## direct parent/child). Keys: fire_rate_mult, heat_mult, range_mult,
+## spread_mult, damage_mult.
+@export var neighbor_mods: Dictionary = {}
+
 @export_group("Locomotion")
 @export var top_speed: float = 0.0
 ## Horizontal force. Acceleration = total thrust / total mass.
@@ -87,11 +100,30 @@ enum VisualShape {
 @export var visual_color: Color = Color(0.6, 0.6, 0.6)
 
 
+var _expanded: Array[SocketDef] = []
+var _expanded_built := false
+
+
+## All socket cells, with hardpoint grids expanded.
+func get_sockets() -> Array[SocketDef]:
+	if not _expanded_built:
+		_expanded.clear()
+		for s in sockets:
+			if s != null:
+				_expanded.append_array(s.expand())
+		_expanded_built = true
+	return _expanded
+
+
 func get_socket(socket_name: StringName) -> SocketDef:
-	for s in sockets:
+	for s in get_sockets():
 		if s.marker_name == socket_name:
 			return s
 	return null
+
+
+func is_weapon() -> bool:
+	return params.has("damage")
 
 
 func get_display_name() -> String:

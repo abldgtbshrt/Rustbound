@@ -27,6 +27,18 @@ extends CharacterBody3D
 ## Overheat clears once heat drops below this fraction of capacity.
 @export var overheat_recover_frac: float = 0.8
 
+@export_group("Locomotion attacks")
+## Leg stomp on landing: damage = fall speed x mass x this (x stomp power).
+@export var stomp_damage_factor: float = 0.45
+@export var stomp_min_fall_speed: float = 3.0
+## Wheel ram: damage = speed x mass x this (x ram power) per hit.
+@export var ram_damage_factor: float = 0.3
+@export var ram_min_speed: float = 3.5
+@export var ram_cooldown: float = 0.5
+## Tread crush: damage per second (x crush power) to enemies this small or smaller.
+@export var crush_dps: float = 60.0
+@export var crush_max_enemy_radius: float = 0.45
+
 @export_group("Vent")
 ## Shift dumps all heat as a scalding blast around the robot.
 @export var vent_cooldown: float = 6.0
@@ -64,6 +76,7 @@ var _tip_timer := 0.0
 var _knockdown_t := 0.0
 var _knockdown_axis := Vector3.RIGHT
 var _was_on_floor := true
+var _fall_speed := 0.0
 
 
 func _ready() -> void:
@@ -138,25 +151,32 @@ func _physics_process(delta: float) -> void:
 		var speed_frac := clampf(hvel.length() / maxf(prof.top_speed, 0.1), 0.0, 1.0)
 		hvel += side * drift_factor * speed_frac * delta * 4.0
 
-	# Face the direction of travel at the locomotion's turn rate.
+	# Face the direction of travel. Turn speed comes from the locomotion,
+	# slowed by mass far from the center (inertia), sped up by gyros.
 	if dir.length() > 0.1:
 		var target_yaw := atan2(-dir.x, -dir.z)
-		rotation.y = rotate_toward(rotation.y, target_yaw, deg_to_rad(prof.turn_rate_deg) * delta)
+		rotation.y = rotate_toward(rotation.y, target_yaw, deg_to_rad(get_turn_rate_deg()) * delta)
 
 	velocity.x = hvel.x
 	velocity.z = hvel.z
 
 	if not is_on_floor():
 		velocity.y -= gravity * delta
-	elif alive and not is_knocked_down and prof.can_jump and Input.is_action_just_pressed("jump"):
-		velocity.y = prof.jump_force / sqrt(maxf(get_load_ratio(), 1.0))
+	elif Input.is_action_just_pressed("jump"):
+		try_jump()
 
+	if not is_on_floor():
+		_fall_speed = maxf(_fall_speed, -velocity.y)
 	move_and_slide()
 
 	var on_floor := is_on_floor()
 	if on_floor and not _was_on_floor:
+		if alive and _fall_speed >= stomp_min_fall_speed and prof.stomp > 0.0:
+			stomp(_fall_speed)
 		for b in assembly.get_all_behaviors():
 			b.on_land()
+	if on_floor:
+		_fall_speed = 0.0
 	_was_on_floor = on_floor
 
 	_update_heat(delta)
@@ -165,6 +185,61 @@ func _physics_process(delta: float) -> void:
 	if alive:
 		for b in assembly.get_all_behaviors():
 			b.on_tick(delta)
+
+
+## Jumps if on the floor with jump-capable locomotion. Heavier = lower.
+func try_jump() -> bool:
+	var prof := assembly.locomotion
+	if not alive or is_knocked_down or not prof.can_jump or not is_on_floor():
+		return false
+	velocity.y = prof.jump_force / sqrt(maxf(get_load_ratio(), 1.0))
+	return true
+
+
+func get_turn_rate_deg() -> float:
+	return assembly.locomotion.turn_rate_deg * assembly.turn_factor
+
+
+## Leg slam on landing. Heavier robots and longer falls hit harder.
+## Returns enemies hit.
+func stomp(fall_speed: float) -> int:
+	var prof := assembly.locomotion
+	var power := minf(prof.stomp, 2.0)
+	var dmg := fall_speed * get_mass() * stomp_damage_factor * power
+	var radius := minf(1.6 + 0.12 * get_mass(), 5.0)
+	var hits := 0
+	if RunState.enemies != null:
+		hits = RunState.enemies.damage_radius(global_position, radius, dmg, 6.0)
+	VentEffect.spawn(get_parent(), global_position - Vector3(0, 0.5, 0), radius, Color(0.85, 0.75, 0.55, 0.8))
+	EventBus.robot_stomped.emit(dmg, hits)
+	return hits
+
+
+## Called by EnemyManager for each enemy touching the robot. Applies ram and
+## crush, then the enemy's contact damage (reduced by armor facing it).
+## `to_enemy` points from the robot to the enemy.
+func handle_enemy_contact(em: EnemyManager, i: int, to_enemy: Vector3, delta: float) -> void:
+	if not alive:
+		return
+	var prof := assembly.locomotion
+	var t := em.get_data(i)
+	var hspeed := Vector2(velocity.x, velocity.z).length()
+
+	if prof.ram > 0.0 and hspeed >= ram_min_speed and em.cooldown[i] <= 0.0:
+		var moving_at := Vector3(velocity.x, 0.0, velocity.z).normalized().dot(to_enemy.normalized()) > 0.3
+		if moving_at:
+			var dmg := hspeed * get_mass() * ram_damage_factor * minf(prof.ram, 2.0)
+			em.damage(i, dmg, Vector3(velocity.x, 0.0, velocity.z) * 1.2 + Vector3.UP)
+			em.cooldown[i] = ram_cooldown
+			velocity.x *= 0.92
+			velocity.z *= 0.92
+
+	if prof.crush > 0.0 and t.radius <= crush_max_enemy_radius:
+		em.damage(i, crush_dps * prof.crush * delta)
+		return # it's under your treads, not biting you
+
+	if em.is_alive(i):
+		take_damage(t.contact_dps * delta, to_enemy)
 
 
 func get_heat_capacity() -> float:
@@ -203,20 +278,8 @@ func vent() -> int:
 
 	var radius := get_vent_radius(amount)
 	var hits := 0
-	var enemies := RunState.enemies
-	if enemies != null:
-		var origin := global_position
-		for i in enemies.query_radius(origin, radius + 1.0):
-			var to := enemies.pos[i] - origin
-			to.y = 0.0
-			var d := to.length()
-			var reach := radius + enemies.get_radius(i)
-			if d > reach:
-				continue
-			var falloff := lerpf(1.0, 0.5, clampf(d / reach, 0.0, 1.0))
-			var push := (to / maxf(d, 0.01)) * vent_knockback
-			enemies.damage(i, amount * vent_damage_per_heat * falloff, push)
-			hits += 1
+	if RunState.enemies != null:
+		hits = RunState.enemies.damage_radius(global_position, radius, amount * vent_damage_per_heat, vent_knockback)
 	VentEffect.spawn(get_parent(), global_position, radius)
 	EventBus.robot_vented.emit(amount, hits)
 	return hits
@@ -260,6 +323,10 @@ func _update_tipping(delta: float, raw_accel: Vector3) -> void:
 			is_knocked_down = false
 			assembly.basis = Basis.IDENTITY
 			_accel_smoothed = Vector3.ZERO
+			if assembly.recover_pulse > 0.0 and RunState.enemies != null:
+				# Gyros fling the robot upright with a shockwave.
+				RunState.enemies.damage_radius(global_position, 3.5, assembly.recover_pulse, 8.0)
+				VentEffect.spawn(get_parent(), global_position, 3.5, Color(0.4, 0.9, 1.0, 0.8))
 			EventBus.robot_recovered.emit()
 		return
 
@@ -289,7 +356,7 @@ func _update_tipping(delta: float, raw_accel: Vector3) -> void:
 
 func _fall_over(axis: Vector3) -> void:
 	is_knocked_down = true
-	_knockdown_t = knockdown_time
+	_knockdown_t = knockdown_time * assembly.recover_time_mult
 	_knockdown_axis = axis if axis.length() > 0.01 else Vector3.RIGHT
 	_tip_timer = 0.0
 	tip_ratio = 0.0
@@ -305,9 +372,12 @@ func apply_recoil(impulse: Vector3) -> void:
 	velocity.z += impulse.z * scale / get_mass()
 
 
-func take_damage(amount: float) -> void:
+## `from_dir` (robot -> attacker, world) lets armor facing that way block.
+func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	if not alive or amount <= 0.0:
 		return
+	if from_dir != Vector3.ZERO:
+		amount *= 1.0 - assembly.armor_block_for(from_dir)
 	hp -= amount
 	EventBus.robot_damaged.emit(amount)
 	for b in assembly.get_all_behaviors():

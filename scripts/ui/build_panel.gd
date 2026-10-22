@@ -14,6 +14,8 @@ var _sel_info: Label
 var _detach_btn: Button
 var _scrap_btn: Button
 var _auto_check: CheckBox
+var _mirror_check: CheckBox
+var _rot_label: Label
 
 
 func _ready() -> void:
@@ -37,30 +39,42 @@ func _build_ui() -> void:
 	_panel.offset_left = -300
 	_panel.offset_right = -14
 	_panel.offset_top = 70
-	_panel.offset_bottom = -185
+	_panel.offset_bottom = -200
 	add_child(_panel)
+	# Everything scrolls, so the panel never grows over the budget HUD.
+	var outer := ScrollContainer.new()
+	outer.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_panel.add_child(outer)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
-	_panel.add_child(col)
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	outer.add_child(col)
 
 	col.add_child(UiStyle.label("BUILD MODE  (10% time)", 18, UiStyle.ACCENT))
-	var help := UiStyle.label("Pick a bench part, click a big socket. Click the\nrobot to select a part. Pink = center of mass,\ngreen = footprint. [Tab] to fight.", 12, UiStyle.DIM)
+	var help := UiStyle.label("Pick a bench part, hover a socket, Q/E rotate,\nclick to place. Click the robot to select a part.\nPink CoM, green footprint, cyan links,\norange weapon arcs, blue armor. [Tab] fight", 12, UiStyle.DIM)
 	col.add_child(help)
 
 	col.add_child(UiStyle.label("BENCH", 14, UiStyle.TEXT))
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size.y = 80
-	col.add_child(scroll)
 	_bench_list = VBoxContainer.new()
 	_bench_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_bench_list)
+	col.add_child(_bench_list)
 
 	_sel_title = UiStyle.label("", 15, UiStyle.TEXT)
 	col.add_child(_sel_title)
 	_sel_info = UiStyle.label("", 12, UiStyle.DIM)
 	_sel_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_sel_info)
+
+	var rot_row := HBoxContainer.new()
+	var rl := UiStyle.button("[Q] <")
+	rl.pressed.connect(func() -> void: build_mode.rotate_selection(-1))
+	rot_row.add_child(rl)
+	_rot_label = UiStyle.label("", 13)
+	rot_row.add_child(_rot_label)
+	var rr := UiStyle.button("> [E]")
+	rr.pressed.connect(func() -> void: build_mode.rotate_selection(1))
+	rot_row.add_child(rr)
+	col.add_child(rot_row)
 
 	var row := HBoxContainer.new()
 	_detach_btn = UiStyle.button("Detach to bench")
@@ -77,6 +91,12 @@ func _build_ui() -> void:
 	_auto_check.button_pressed = RunState.auto_install
 	_auto_check.toggled.connect(func(on: bool) -> void: RunState.auto_install = on)
 	col.add_child(_auto_check)
+
+	_mirror_check = CheckBox.new()
+	_mirror_check.text = "[M] Mirror placement"
+	_mirror_check.focus_mode = Control.FOCUS_NONE
+	_mirror_check.toggled.connect(func(on: bool) -> void: build_mode.set_mirror(on))
+	col.add_child(_mirror_check)
 
 
 func _refresh() -> void:
@@ -108,9 +128,23 @@ func _refresh() -> void:
 		_sel_info.text = ""
 	else:
 		_sel_title.text = sel_data.get_display_name() + ("  (on robot)" if on_robot else "  (bench)")
-		_sel_info.text = "\n".join(UiStyle.describe_part(sel_data))
+		var lines := UiStyle.describe_part(sel_data)
+		if on_robot and RunState.robot != null:
+			var asm := RunState.robot.assembly
+			var names: PackedStringArray = []
+			for n in asm.get_links(build_mode.selected_part):
+				if not (n as PartInstance).data.neighbor_mods.is_empty():
+					names.append((n as PartInstance).data.get_display_name())
+			if not names.is_empty():
+				lines.append("Linked to: " + ", ".join(names))
+		_sel_info.text = "\n".join(lines)
 	var is_root := on_robot and RunState.robot != null and build_mode.selected_part == RunState.robot.assembly.root
 	_detach_btn.disabled = not on_robot or is_root
 	_scrap_btn.disabled = sel_data == null or is_root
 	_scrap_btn.text = "Scrap (+%d)" % sel_data.scrap_value if sel_data != null else "Scrap"
 	_auto_check.set_pressed_no_signal(RunState.auto_install)
+	_mirror_check.set_pressed_no_signal(build_mode.mirror)
+	var yaw := build_mode.placement_yaw
+	if on_robot:
+		yaw = build_mode.selected_part.yaw_steps
+	_rot_label.text = "  rotation %d°  " % (posmod(yaw, 8) * 45)

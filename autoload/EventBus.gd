@@ -20,6 +20,8 @@ signal robot_cooled
 @warning_ignore("unused_signal")
 signal robot_vented(amount: float, hits: int)
 @warning_ignore("unused_signal")
+signal robot_stomped(damage: float, hits: int)
+@warning_ignore("unused_signal")
 signal robot_damaged(amount: float)
 @warning_ignore("unused_signal")
 signal robot_knocked_down

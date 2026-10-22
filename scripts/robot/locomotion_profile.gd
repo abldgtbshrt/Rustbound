@@ -13,9 +13,24 @@ var turn_rate_deg: float = 240.0
 var can_jump: bool = false
 var is_ball: bool = true
 var part_count: int = 0
+## Parts tagged "leg". More legs: more capacity and stability, lower jumps.
+var leg_count: int = 0
+## Locomotion attacks, summed from part params "stomp", "ram", "crush".
+var stomp: float = 0.0
+var ram: float = 0.0
+var crush: float = 0.0
+
+## Jump height lost per leg beyond two.
+const JUMP_LOSS_PER_EXTRA_LEG := 0.22
+## Tip resistance gained per leg beyond two.
+const STABILITY_PER_EXTRA_LEG := 0.25
 
 
 ## entries: Array of [PartData, Vector3 (assembly-local mass point)]
+func extra_leg_stability() -> float:
+	return STABILITY_PER_EXTRA_LEG * float(maxi(leg_count - 2, 0))
+
+
 static func blend(entries: Array, center_of_mass: Vector3) -> LocomotionProfile:
 	var prof := LocomotionProfile.new()
 	if entries.is_empty():
@@ -43,10 +58,17 @@ static func blend(entries: Array, center_of_mass: Vector3) -> LocomotionProfile:
 		prof.turn_rate_deg += d.turn_rate_deg * w
 		prof.thrust += d.thrust
 		prof.mass_capacity += d.mass_capacity
+		if d.tags.has("leg"):
+			prof.leg_count += 1
+		prof.stomp += float(d.params.get("stomp", 0.0))
+		prof.ram += float(d.params.get("ram", 0.0))
+		prof.crush += float(d.params.get("crush", 0.0))
 
 	prof.top_speed /= total_w
 	prof.grip /= total_w
 	prof.jump_force /= total_w
 	prof.turn_rate_deg /= total_w
+	if prof.leg_count > 2:
+		prof.jump_force /= 1.0 + JUMP_LOSS_PER_EXTRA_LEG * float(prof.leg_count - 2)
 	prof.can_jump = prof.jump_force > 0.5
 	return prof

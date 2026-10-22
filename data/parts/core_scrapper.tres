@@ -1,18 +1,21 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_y8kwb"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_56acx"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_1rjdp"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_j4707"]
 
-[sub_resource type="Resource" id="Resource_5ir20"]
-script = ExtResource("2_56acx")
+[sub_resource type="Resource" id="Resource_4mcxw"]
+script = ExtResource("2_j4707")
 marker_name = &"chassis"
 type = 0
 size = 2
 position = Vector3(0, 0, 0)
 rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("1_y8kwb")
+script = ExtResource("1_1rjdp")
 id = &"core_scrapper"
 display_name = "Scrapper Core"
 category = 0
@@ -27,6 +30,9 @@ pickup_radius = 0.0
 stability = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -35,7 +41,7 @@ mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 0
 attach_size = 2
-sockets = Array[ExtResource("2_56acx")]([SubResource("Resource_5ir20")])
+sockets = Array[ExtResource("2_j4707")]([SubResource("Resource_4mcxw")])
 component_slots = 2
 behaviors = Array[Script]([])
 params = {}

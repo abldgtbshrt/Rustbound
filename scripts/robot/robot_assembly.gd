@@ -13,6 +13,8 @@ signal assembly_changed
 ## Optional socket name per starting part (same index). The first part in the
 ## tree with a free socket of that name is used. Empty = auto_attach().
 @export var starting_sockets: Array[StringName] = []
+## Optional rotation (45° steps) per starting part (same index).
+@export var starting_yaws: Array[int] = []
 
 var robot: RobotController
 var root: PartInstance
@@ -39,6 +41,25 @@ var heat_capacity: float = 0.0
 var heat_dissipation: float = 0.0
 var locomotion: LocomotionProfile = LocomotionProfile.new()
 var part_count: int = 0
+## Horizontal moment of inertia about the center of mass. Mass far from the
+## middle makes the robot turn slower.
+var inertia: float = 0.0
+## Turn speed multiplier from inertia (compact = fast) times gyro bonuses.
+var turn_factor: float = 1.0
+## Gyro effects: knockdown duration multiplier and recovery shockwave damage.
+var recover_time_mult: float = 1.0
+var recover_pulse: float = 0.0
+var armor_parts: Array[PartInstance] = []
+
+## Moment of inertia of the starter robot; it turns at its parts' rated speed.
+const INERTIA_REF := 1.6
+## Mass points closer than this are linked (as are parent and child).
+const LINK_RANGE := 0.75
+
+## PartInstance -> Array[PartInstance] of linked neighbours.
+var links: Dictionary = {}
+## PartInstance -> Dictionary of multipliers received from neighbours.
+var _mods: Dictionary = {}
 
 var _cpu_granted: Dictionary = {} # PartInstance -> true
 var _was_browned_out := false
@@ -59,9 +80,10 @@ func build(p_robot: RobotController) -> void:
 		if p == null:
 			continue
 		var socket_name: StringName = starting_sockets[k] if k < starting_sockets.size() else &""
+		var yaw: int = starting_yaws[k] if k < starting_yaws.size() else 0
 		var inst: PartInstance = null
 		if socket_name != &"":
-			inst = attach_by_socket_name(p, socket_name)
+			inst = attach_by_socket_name(p, socket_name, true, yaw)
 		else:
 			inst = auto_attach(p)
 		if inst == null:
@@ -70,11 +92,11 @@ func build(p_robot: RobotController) -> void:
 
 ## Attaches to the first part (in tree order) with a free, compatible socket
 ## named `socket_name`.
-func attach_by_socket_name(part: PartData, socket_name: StringName, do_recompute: bool = true) -> PartInstance:
+func attach_by_socket_name(part: PartData, socket_name: StringName, do_recompute: bool = true, yaw_steps: int = 0) -> PartInstance:
 	for inst in get_all_parts():
 		var s := inst.data.get_socket(socket_name)
 		if s != null and inst.is_socket_free(socket_name) and can_fit(part, s):
-			return attach(part, inst, socket_name, do_recompute)
+			return attach(part, inst, socket_name, do_recompute, yaw_steps)
 	return null
 
 
@@ -84,7 +106,7 @@ static func can_fit(part: PartData, socket: SocketDef) -> bool:
 		and part.attach_size <= socket.size
 
 
-func attach(part: PartData, parent: PartInstance, socket_name: StringName, do_recompute: bool = true) -> PartInstance:
+func attach(part: PartData, parent: PartInstance, socket_name: StringName, do_recompute: bool = true, yaw_steps: int = 0) -> PartInstance:
 	if part == null:
 		return null
 	if parent == null:
@@ -96,7 +118,7 @@ func attach(part: PartData, parent: PartInstance, socket_name: StringName, do_re
 		return null
 
 	var inst := PartInstance.new(part)
-	parent.attach_child_part(inst, socket)
+	parent.attach_child_part(inst, socket, yaw_steps)
 	_spawn_behaviors(inst)
 	EventBus.part_attached.emit(part.id)
 	if do_recompute:
@@ -135,6 +157,69 @@ func find_best_socket(part: PartData) -> Array:
 				best_score = score
 				best = [inst, s.marker_name]
 	return best
+
+
+## Turns an attached part by `delta_steps` x 45° around its socket's up axis.
+func rotate_part(inst: PartInstance, delta_steps: int) -> void:
+	if inst == null or inst == root or inst.parent_part == null:
+		return
+	inst.set_yaw(inst.yaw_steps + delta_steps)
+	recompute()
+
+
+## Assembly-local position of a socket cell on `inst`.
+func socket_local_position(inst: PartInstance, socket: SocketDef) -> Vector3:
+	for e in _walk_local():
+		if e[0] == inst:
+			return (e[1] as Transform3D) * inst.get_socket_transform(socket).origin
+	return Vector3.ZERO
+
+
+## The free socket mirrored across the robot's center line (x -> -x) that
+## also fits `part`, as [PartInstance, SocketDef], or [] if none.
+func find_mirror_socket(part: PartData, inst: PartInstance, socket: SocketDef) -> Array:
+	var p := socket_local_position(inst, socket)
+	if absf(p.x) < 0.05:
+		return []
+	var want := Vector3(-p.x, p.y, p.z)
+	for e in _walk_local():
+		var other: PartInstance = e[0]
+		var xf: Transform3D = e[1]
+		for s in other.get_free_sockets():
+			if s == socket or not can_fit(part, s):
+				continue
+			if (xf * other.get_socket_transform(s).origin).distance_to(want) < 0.06:
+				return [other, s]
+	return []
+
+
+## Multiplier a part receives from linked neighbours (1.0 if none).
+func get_mod(inst: PartInstance, key: String, default_value: float = 1.0) -> float:
+	var m: Dictionary = _mods.get(inst, {})
+	return float(m.get(key, default_value))
+
+
+func get_links(inst: PartInstance) -> Array:
+	return links.get(inst, [])
+
+
+## Fraction of a hit coming from world direction `from_dir` (robot -> attacker)
+## that the armor blocks. Overlapping plates stack multiplicatively.
+func armor_block_for(from_dir: Vector3) -> float:
+	var d := Vector3(from_dir.x, 0.0, from_dir.z)
+	if d.length_squared() < 0.0001:
+		return 0.0
+	d = d.normalized()
+	var pass_through := 1.0
+	for a in armor_parts:
+		if not is_instance_valid(a):
+			continue
+		var f := a.get_facing_global()
+		if f == Vector3.ZERO:
+			continue
+		if f.dot(d) >= cos(deg_to_rad(a.data.armor_arc_deg * 0.5)):
+			pass_through *= 1.0 - a.data.armor_block
+	return 1.0 - pass_through
 
 
 ## Removes a part and everything attached to it. Returns the removed PartData
@@ -199,6 +284,13 @@ func recompute() -> void:
 	heat_capacity = 0.0
 	heat_dissipation = 0.0
 	part_count = 0
+	inertia = 0.0
+	turn_factor = 1.0
+	recover_time_mult = 1.0
+	recover_pulse = 0.0
+	armor_parts.clear()
+	links.clear()
+	_mods.clear()
 	_cpu_granted.clear()
 
 	if root == null:
@@ -229,12 +321,20 @@ func recompute() -> void:
 	var support := AABB()
 	var has_support := false
 	var cpu_users: Array[PartInstance] = []
+	var mass_points: Dictionary = {} # PartInstance -> Vector3
+	var gyro_turn := 1.0
 	for e in entries:
 		var inst: PartInstance = e[0]
 		var d := inst.data
 		var xf: Transform3D = e[1]
 		var mass_point: Vector3 = xf * d.visual_offset + lift
+		mass_points[inst] = mass_point
 		part_count += 1
+		if d.armor_block > 0.0:
+			armor_parts.append(inst)
+		gyro_turn *= float(d.params.get("turn_rate_mult", 1.0))
+		recover_time_mult = minf(recover_time_mult, float(d.params.get("recover_time_mult", 1.0)))
+		recover_pulse += float(d.params.get("recover_pulse", 0.0))
 		total_mass += d.mass
 		weighted += mass_point * d.mass
 		power_gen += d.power_output
@@ -261,6 +361,18 @@ func recompute() -> void:
 	if total_mass > 0.0001:
 		center_of_mass = weighted / total_mass
 
+	# Moment of inertia (horizontal) about the center of mass: point masses
+	# plus each part's own box.
+	for e in entries:
+		var inst: PartInstance = e[0]
+		var d := inst.data
+		var mp: Vector3 = mass_points[inst]
+		var r2 := Vector2(mp.x - center_of_mass.x, mp.z - center_of_mass.z).length_squared()
+		inertia += d.mass * (r2 + (d.visual_size.x * d.visual_size.x + d.visual_size.z * d.visual_size.z) / 12.0)
+	turn_factor = clampf(sqrt(INERTIA_REF / maxf(inertia, 0.01)), 0.3, 1.4) * gyro_turn
+
+	_compute_links(entries, mass_points)
+
 	# CPU is granted in attach order; extra weapons fire straight ahead.
 	for inst in cpu_users:
 		if cpu_used + inst.data.cpu_cost <= cpu_capacity:
@@ -276,6 +388,7 @@ func recompute() -> void:
 		support_max = Vector2(center_of_mass.x + 0.15, center_of_mass.z + 0.15)
 	footprint = minf(support_max.x - support_min.x, support_max.y - support_min.y)
 	locomotion = LocomotionProfile.blend(loco_entries, center_of_mass)
+	stability += locomotion.extra_leg_stability()
 
 	var browned := is_browned_out()
 	if browned and not _was_browned_out:
@@ -285,6 +398,30 @@ func recompute() -> void:
 	_was_browned_out = browned
 
 	assembly_changed.emit()
+
+
+func _compute_links(entries: Array, mass_points: Dictionary) -> void:
+	for e in entries:
+		links[e[0]] = []
+	for a_i in entries.size():
+		var a: PartInstance = entries[a_i][0]
+		for b_i in range(a_i + 1, entries.size()):
+			var b: PartInstance = entries[b_i][0]
+			var touching := (mass_points[a] as Vector3).distance_to(mass_points[b]) <= LINK_RANGE
+			if touching or a.parent_part == b or b.parent_part == a:
+				# The core and chassis touch everything; skip structural hubs so
+				# links stay meaningful.
+				if a == root or b == root:
+					continue
+				(links[a] as Array).append(b)
+				(links[b] as Array).append(a)
+	for inst in links.keys():
+		var m: Dictionary = {}
+		for n in links[inst]:
+			var nm: Dictionary = (n as PartInstance).data.neighbor_mods
+			for k in nm.keys():
+				m[k] = float(m.get(k, 1.0)) * float(nm[k])
+		_mods[inst] = m
 
 
 # Returns Array of [PartInstance, Transform3D relative to this assembly],
