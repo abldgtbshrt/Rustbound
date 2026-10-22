@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_yvlr2"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_phxop"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_3rixc"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_08lcq"]
 
 [resource]
-script = ExtResource("1_yvlr2")
+script = ExtResource("1_3rixc")
 id = &"loco_tread"
 display_name = "Tread Unit"
 category = 2
@@ -17,6 +17,7 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+energy_capacity = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
 armor_block = 0.0
@@ -29,14 +30,21 @@ jump_force = 0.0
 mass_capacity = 12.0
 turn_rate_deg = 200.0
 attach_type = 3
+alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("2_phxop")]([])
+sockets = Array[ExtResource("2_08lcq")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {
 "crush": 1.0
 }
 tags = PackedStringArray("anchored")
+upgrade_per_tier = {
+"crush": 0.3,
+"hp": 0.3,
+"mass_capacity": 0.2,
+"thrust": 0.12
+}
 drop_weight = 0.6
 scrap_value = 5
 visual_shape = 0

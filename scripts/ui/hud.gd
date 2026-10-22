@@ -27,7 +27,8 @@ func _ready() -> void:
 	_build_ui()
 	EventBus.message.connect(_push)
 	EventBus.robot_knocked_down.connect(func() -> void: _push("KNOCKED DOWN: too top-heavy for that move"))
-	EventBus.robot_brownout.connect(func() -> void: _push("BROWNOUT: power draw exceeds generation"))
+	EventBus.robot_brownout.connect(func() -> void: _push("BROWNOUT: battery empty. Weapons stall, legs slow. Add a reactor or drop a gun"))
+	EventBus.robot_power_restored.connect(func() -> void: _push("Power restored"))
 	EventBus.robot_overheat.connect(func() -> void: _push("OVERHEAT: keep moving to cool, or vent with Shift"))
 	EventBus.robot_vented.connect(func(amount: float, hits: int) -> void: _push("VENTED %d heat, scalded %d" % [int(amount), hits]))
 	RunState.run_ended.connect(_on_run_ended)
@@ -84,7 +85,7 @@ func _build_ui() -> void:
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 8)
 	panel.add_child(grid)
-	for spec in [["POWER", UiStyle.C_POWER], ["HEAT", UiStyle.C_HEAT], ["VENT", UiStyle.C_XP], ["CPU", UiStyle.C_CPU], ["MASS", UiStyle.C_MASS], ["TILT", UiStyle.C_TILT]]:
+	for spec in [["ENERGY", UiStyle.C_POWER], ["HEAT", UiStyle.C_HEAT], ["VENT", UiStyle.C_XP], ["CPU", UiStyle.C_CPU], ["MASS", UiStyle.C_MASS], ["TILT", UiStyle.C_TILT]]:
 		grid.add_child(UiStyle.label(spec[0], 13, spec[1]))
 		var b := UiStyle.bar(spec[1], Vector2(150, 10))
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -165,8 +166,15 @@ func _process(delta: float) -> void:
 	var enemies := RunState.enemies.alive_count() if RunState.enemies != null else 0
 	_run_text.text = "%02d:%02d\nKILLS %d   SCRAP %d   ENEMIES %d" % [t / 60, t % 60, RunState.kills, RunState.scrap, enemies]
 
-	var power_frac := a.power_draw / maxf(a.power_gen, 0.01)
-	_set_row("POWER", power_frac, "%.0f / %.0f" % [a.power_draw, a.power_gen], a.is_browned_out())
+	var ecap := robot.get_energy_capacity()
+	var oc := robot.get_overcharge_mult()
+	var etext := "%+.0f/s" % robot.power_net
+	if robot.browned_out:
+		etext = "BROWNOUT"
+	elif oc > 1.001:
+		etext = "OVERCHARGE +%d%%" % int((oc - 1.0) * 100.0)
+	_set_row("ENERGY", robot.energy / ecap, etext, robot.browned_out)
+	UiStyle.set_bar_color(_rows["ENERGY"]["bar"], UiStyle.C_BAD if robot.browned_out else (UiStyle.C_XP if oc > 1.001 else UiStyle.C_POWER))
 	var cap := robot.get_heat_capacity()
 	_set_row("HEAT", robot.heat / cap, "%.0f / %.0f%s" % [robot.heat, cap, " HOT" if robot.is_overheated else ""], robot.is_overheated)
 	var vent_text := "Shift"
@@ -193,7 +201,7 @@ func _process(delta: float) -> void:
 	_set_row("TILT", robot.tip_ratio, "DOWN" if robot.is_knocked_down else "%d%%" % int(robot.tip_ratio * 100.0), robot.tip_ratio > 0.8 or robot.is_knocked_down)
 
 	var bench := RunState.inventory.size()
-	var building := Engine.time_scale < 0.99
+	var building := Engine.time_scale < 0.99 or (get_tree().paused and RunState.pending_levelups == 0)
 	_hint.text = ("[Tab] build  -  %d part(s) on bench" % bench) if bench > 0 and not building else ""
 
 	if _debug.visible:
@@ -202,6 +210,7 @@ func _process(delta: float) -> void:
 			"parts %d   locomotion %s   speed %.1f m/s   grip %.2f   jump %s" % [a.part_count, loco, robot.get_top_speed(), prof.grip, ("%.1f" % prof.jump_force) if prof.can_jump else "no"],
 			"CoM h %.2f side %+.2f   footprint %.2f   height %.2f   gyro +%d%%" % [a.center_of_mass.y, a.center_of_mass.x, a.footprint, a.height, int(a.stability * 100.0)],
 			"heat +%.1f/s passive, -%.1f/s cooling (incl. airflow)   FPS %d" % [a.heat_passive, robot.get_heat_dissipation(), Engine.get_frames_per_second()],
+			"power %.0f gen / %.0f draw   battery %.0f / %.0f   jets %.0f thrust (%.1f lift)" % [a.power_gen, a.power_draw, robot.energy, robot.get_energy_capacity(), a.jet_thrust, a.jet_thrust / robot.get_mass()],
 		])
 
 	var lines: Array[String] = []

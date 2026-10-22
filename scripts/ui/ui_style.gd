@@ -80,7 +80,13 @@ static func button(text: String, size: int = 14) -> Button:
 ## One-line-per-stat summary used on level-up cards and the build panel.
 static func describe_part(p: PartData) -> PackedStringArray:
 	var out := PackedStringArray()
-	out.append("%s  |  %s socket, size %d" % [PartData.Category.keys()[p.category].capitalize(), SOCKET_NAMES[int(p.attach_type)], p.attach_size])
+	var types := [SOCKET_NAMES[int(p.attach_type)]]
+	for t in p.alt_attach_types:
+		types.append(SOCKET_NAMES[t])
+	out.append("%s  |  %s socket, size %d" % [PartData.Category.keys()[p.category].capitalize(), " or ".join(types), p.attach_size])
+	var tier := RunState.get_tier(p.id)
+	if tier > 1:
+		out.append("%s (all copies)" % PartData.tier_name(tier))
 	out.append("Mass %.1f" % p.mass)
 	if p.hp > 0.0: out.append("+%d HP" % int(p.hp))
 	if p.power_output > 0.0: out.append("+%.0f power" % p.power_output)
@@ -91,6 +97,8 @@ static func describe_part(p: PartData) -> PackedStringArray:
 	if p.jump_force > 0.0: out.append("can jump")
 	if p.stability > 0.0: out.append("+%d%% tip resistance" % int(p.stability * 100.0))
 	if p.pickup_radius > 0.0: out.append("+%.0f m pickup radius" % p.pickup_radius)
+	if p.energy_capacity > 0.0: out.append("+%.0f battery" % p.scaled("energy_capacity", p.energy_capacity, tier))
+	if p.params.has("jet_thrust"): out.append("jet: hold jump to fly, %.0f thrust, %.0f energy/s" % [p.scaled("jet_thrust", float(p.params["jet_thrust"]), tier), float(p.params.get("jet_energy", 10.0))])
 	if p.heat_per_sec > 0.0: out.append("+%.1f heat/s" % p.heat_per_sec)
 	if p.heat_capacity > 0.0: out.append("+%.0f heat capacity" % p.heat_capacity)
 	if p.heat_dissipation > 0.0: out.append("+%.0f cooling/s" % p.heat_dissipation)

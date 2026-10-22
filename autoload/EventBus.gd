@@ -13,6 +13,8 @@ signal part_picked_up(part: PartData, attached: bool)
 @warning_ignore("unused_signal")
 signal robot_brownout
 @warning_ignore("unused_signal")
+signal robot_power_restored
+@warning_ignore("unused_signal")
 signal robot_overheat
 @warning_ignore("unused_signal")
 signal robot_cooled

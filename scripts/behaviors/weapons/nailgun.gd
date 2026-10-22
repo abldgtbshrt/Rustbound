@@ -40,7 +40,7 @@ func on_tick(delta: float) -> void:
 	var muzzle := float(param("muzzle", 0.45))
 	var heat_per_shot := float(param("heat_per_shot", 0.0))
 	# Linked neighbours (heat sinks, reactors, gyros, sensor heads) modify us.
-	fire_rate *= asm.get_mod(part, "fire_rate_mult")
+	fire_rate *= asm.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult()
 	damage *= asm.get_mod(part, "damage_mult")
 	max_range *= asm.get_mod(part, "range_mult")
 	spread_deg *= asm.get_mod(part, "spread_mult")
@@ -49,7 +49,7 @@ func on_tick(delta: float) -> void:
 		fire_rate *= float(param("hot_fire_rate_mult", 1.0))
 
 	# Brownout: shots stutter in proportion to the power deficit.
-	if asm.is_browned_out() and _rng.randf() > asm.get_power_ratio():
+	if robot.browned_out and _rng.randf() > robot.get_power_supply():
 		_cooldown = 0.35
 		return
 

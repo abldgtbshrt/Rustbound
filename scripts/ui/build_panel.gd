@@ -16,6 +16,7 @@ var _scrap_btn: Button
 var _auto_check: CheckBox
 var _mirror_check: CheckBox
 var _rot_label: Label
+var _title: Label
 
 
 func _ready() -> void:
@@ -50,7 +51,8 @@ func _build_ui() -> void:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outer.add_child(col)
 
-	col.add_child(UiStyle.label("BUILD MODE  (10% time)", 18, UiStyle.ACCENT))
+	_title = UiStyle.label("BUILD MODE", 18, UiStyle.ACCENT)
+	col.add_child(_title)
 	var help := UiStyle.label("Pick a bench part, hover a socket, Q/E rotate,\nclick to place. Click the robot to select a part.\nPink CoM, green footprint, cyan links,\norange weapon arcs, blue armor. [Tab] fight", 12, UiStyle.DIM)
 	col.add_child(help)
 
@@ -85,6 +87,10 @@ func _build_ui() -> void:
 	row.add_child(_scrap_btn)
 	col.add_child(row)
 
+	var strip := UiStyle.button("Strip to core (rebuild from scratch)", 13)
+	strip.pressed.connect(func() -> void: build_mode.strip_all())
+	col.add_child(strip)
+
 	_auto_check = CheckBox.new()
 	_auto_check.text = "Auto-install new parts"
 	_auto_check.focus_mode = Control.FOCUS_NONE
@@ -109,7 +115,8 @@ func _refresh() -> void:
 	for i in RunState.inventory.size():
 		var p := RunState.inventory[i]
 		var fits := build_mode.get_compatible_sockets(p).size()
-		var b := UiStyle.button("%s   m%.1f   %s" % [p.get_display_name(), p.mass, ("%d socket(s)" % fits) if fits > 0 else "no socket"], 13)
+		var t := RunState.get_tier(p.id)
+		var b := UiStyle.button("%s%s   m%.1f   %s" % [p.get_display_name(), (" " + PartData.tier_name(t)) if t > 1 else "", p.mass, ("%d socket(s)" % fits) if fits > 0 else "no socket"], 13)
 		b.toggle_mode = true
 		b.button_pressed = i == build_mode.selected_bench
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -144,6 +151,7 @@ func _refresh() -> void:
 	_scrap_btn.text = "Scrap (+%d)" % sel_data.scrap_value if sel_data != null else "Scrap"
 	_auto_check.set_pressed_no_signal(RunState.auto_install)
 	_mirror_check.set_pressed_no_signal(build_mode.mirror)
+	_title.text = "BUILD MODE  (%s)" % ("paused" if build_mode.pause_world else "%d%% time" % int(build_mode.time_scale * 100.0))
 	var yaw := build_mode.placement_yaw
 	if on_robot:
 		yaw = build_mode.selected_part.yaw_steps

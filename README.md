@@ -19,16 +19,19 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 - **Chain Sword Arm**: melee, hits everything in its reach and arc; no CPU needed.
 - **Physics from the build**: mass, center of mass, support footprint and height are computed from where parts actually sit. They drive acceleration (thrust / mass), top speed (slows past mass capacity, stops at 2×), sideways drift from asymmetric builds, visual lean, and **tipping over** (1.5 s knockdown) when a top-heavy robot turns or brakes too hard. Gyros counter it.
 - **Blended locomotion**: every locomotion part contributes; parts nearer the CoM carry more load. Low-grip wheels drift, treads are slow and recoil-proof, legs jump.
-- **Budgets**: power (brownout makes weapons stutter), CPU (weapons without CPU fire straight ahead), HP summed from parts.
+- **Energy**: power generation minus draw charges a battery (40 + Battery Packs). With the battery full, spare power **overcharges** weapons (up to +50% fire rate). Draw more than you generate and the battery drains; when it's empty you **brown out**: weapons stall and movement drops to 70%. Reactors and batteries fit Internal *or* Mount sockets.
+- **Jump Jets**: hold Space in the air to thrust (lift = total jet thrust / mass, gravity is 20), burning 10 energy/s per jet. Two jets on the starter lift it ~10 m; heavy robots need more. Robots without legs can take off on jets alone. Higher falls also mean bigger leg stomps.
+- **Budgets**: CPU (weapons without CPU fire straight ahead), HP summed from parts.
 - **Nailgun / Rivet Cannon**: auto-firing, mount arcs limit what they can target, recoil pushes the robot.
 - **Horde**: MultiMesh enemies in packed arrays with a spatial hash, ramping waves, 3 enemy types. ~600 enemies in GDScript.
 - **Pooled projectiles** hit-tested against the spatial hash (no Area3D per bullet).
 - **Pickups**: scrap gems are magnet-pulled; parts must be walked over and auto-attach to the free socket that keeps you balanced, or get salvaged for scrap if nothing fits.
-- **Level-ups**: scrap fills the XP bar. Each level pauses and offers 3 parts (keys 1-3), or skip to repair 30% (R).
+- **Level-ups**: scrap fills the XP bar. Each level pauses and offers 3 cards (keys 1-3), or skip to repair 30% (R). Early cards are mostly **upgrades** to parts you already own (Mk I to Mk V, every copy at once); new parts get more likely each level (12% per card at level 2, up to 55%), so the robot gets stronger before it gets chaotic.
+- **Upgrades**: each part's `upgrade_per_tier` says what grows per Mk (damage, fire rate, thrust, armor, battery...). Walking over a part you already own upgrades it instead of adding a copy; new copies come from level-up cards.
 - **The bench**: new parts auto-install on the most balanced free socket (toggle in build mode); otherwise they go to an 8-slot bench, and overflow is scrapped.
-- **Build mode** (Tab): the world drops to 10% speed and the camera moves in. Free sockets show as colored dots (gray structural, orange mount, cyan internal, green locomotion); pick a bench part and only the sockets it fits remain. Hover one to see a ghost, Q/E to rotate, click to attach. **M** toggles mirror placement (a second bench copy goes on the mirrored cell, mirrored; rotating a part also turns its twin). Click a part on the robot to rotate, detach (to bench, with everything on it) or scrap it. Overlays: center of mass (pink), footprint (green), links (cyan), weapon arcs (orange), armor arcs (blue).
+- **Build mode** (Tab): the world pauses (set `BuildMode.pause_world` off to go back to 10% slow motion) and the camera moves in. **Strip to core** sends every part to the bench to rebuild from scratch; detached parts always fit on the bench. Free sockets show as colored dots (gray structural, orange mount, cyan internal, green locomotion); pick a bench part and only the sockets it fits remain. Hover one to see a ghost, Q/E to rotate, click to attach. **M** toggles mirror placement (a second bench copy goes on the mirrored cell, mirrored; rotating a part also turns its twin). Click a part on the robot to rotate, detach (to bench, with everything on it) or scrap it. Overlays: center of mass (pink), footprint (green), links (cyan), weapon arcs (orange), armor arcs (blue).
 - **Heat**: weapons add heat per shot, reactors add it passively, heat sinks raise capacity and cooling. Cooling scales with speed (airflow), so kiting cools you and camping bakes you. **Shift vents** all heat as a scalding blast: radius and damage grow with the heat dumped, 6 s cooldown. Over capacity you overheat and take light damage (3 HP/s) until you cool to 80%.
-- **Budget HUD**: power, heat, CPU, mass and tilt bars turn red when you're over. F3 shows the detailed physics readout.
+- **Budget HUD**: energy (shows charge rate, OVERCHARGE or BROWNOUT), heat, vent, CPU, mass and tilt bars turn red when you're over. F3 shows the detailed physics readout.
 - **PS2 look**: the 3D view renders at ~360 lines and is upscaled with nearest-neighbor, ordered dithering and 15-bit color, while the UI stays sharp. F4 toggles it.
 
 ### Controls
@@ -37,6 +40,7 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 |---|---|
 | WASD / arrows | Move (camera-relative) |
 | Space | Jump (legs only) |
+| Space (hold) | Jump, then jets while airborne |
 | Shift | Vent heat (blast around you) |
 | Tab | Build mode (10% time) |
 | Left click | Build mode: attach / select |
@@ -61,7 +65,7 @@ Weapons fire on their own.
 godot --headless --fixed-fps 60 res://tests/run_tests.tscn
 ```
 
-115 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, and a 600-enemy benchmark. Exit code is non-zero on failure.
+138 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout) and jets, and a 600-enemy benchmark. Exit code is non-zero on failure.
 
 ## Content
 

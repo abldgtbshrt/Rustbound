@@ -98,6 +98,16 @@ func walk() -> Array[PartInstance]:
 	return out
 
 
+## Upgrade tier, shared by every copy of this part in the run.
+func get_tier() -> int:
+	return RunState.get_tier(data.id) if data != null else 1
+
+
+## A stat scaled by this part's tier. `base` is usually the PartData value.
+func stat(key: String, base: float) -> float:
+	return data.scaled(key, base, get_tier())
+
+
 ## World-space mass point (attach point + visual offset).
 func get_mass_point_global() -> Vector3:
 	return global_transform * data.visual_offset

@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_uqfu7"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_ofqrc"]
 
 [resource]
-script = ExtResource("1_uqfu7")
+script = ExtResource("1_ofqrc")
 id = &"dart"
 display_name = "Dart"
 hp = 6.0

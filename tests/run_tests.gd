@@ -29,6 +29,8 @@ func _run() -> void:
 	_test_grids_rotation_frames()
 	await _test_utility_parts()
 	await _test_build_mode_rework()
+	await _test_upgrades()
+	await _test_energy_and_jets()
 	await _bench_horde()
 	print("")
 	print("%d checks, %d failed" % [_checks, _failures])
@@ -347,7 +349,10 @@ func _test_main_scene_flow() -> void:
 	check(lvl.is_open() and get_tree().paused and lvl.offers.size() == 3, "level-up opens, pauses, offers 3")
 	lvl.choose(0)
 	check(not lvl.is_open() and not get_tree().paused, "choosing closes and unpauses")
-	check(robot.assembly.part_count == parts_before + 1 or rs.inventory.size() == 1, "chosen part installed or benched")
+	var upgraded := false
+	for id in rs.part_tiers.keys():
+		upgraded = upgraded or rs.part_tiers[id] > 1
+	check(robot.assembly.part_count == parts_before + 1 or rs.inventory.size() == 1 or upgraded, "chosen card installed, benched or upgraded")
 	# Repair option.
 	robot.hp = 10.0
 	rs.add_xp(rs.xp_to_next())
@@ -359,7 +364,7 @@ func _test_main_scene_flow() -> void:
 	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
 	var panel: BuildPanel = main.get_node("BuildPanel")
 	bm.enter()
-	check(bm.active and is_equal_approx(Engine.time_scale, 0.1) and panel.visible, "build mode slows time to 10% and shows the panel")
+	check(bm.active and get_tree().paused and panel.visible, "build mode pauses the world and shows the panel")
 	rs.inventory.clear()
 	rs.inventory_changed.emit()
 	var leg: PartInstance = null
@@ -397,7 +402,7 @@ func _test_main_scene_flow() -> void:
 	check(not bm.detach_selected(), "core can't be detached")
 
 	bm.exit()
-	check(not bm.active and is_equal_approx(Engine.time_scale, 1.0) and not panel.visible, "exit restores time and hides panel")
+	check(not bm.active and not get_tree().paused and is_equal_approx(Engine.time_scale, 1.0) and not panel.visible, "exit unpauses and hides panel")
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -641,6 +646,144 @@ func _test_build_mode_rework() -> void:
 	check(l.yaw_steps == 3 and r.yaw_steps == 5, "rotating a part with mirror on turns its twin too")
 	bm.exit()
 	main.queue_free()
+	await get_tree().process_frame
+
+
+func _test_upgrades() -> void:
+	print("upgrades: tiers, offers, duplicate merge, strip to core")
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	rs.enemies.spawn_enabled = false
+	rs.pickups.clear_all()
+	var robot: RobotController = rs.robot
+	var nail := part("gun_nail")
+	var gun: NailgunBehavior = null
+	for b in robot.assembly.get_all_behaviors():
+		if b is NailgunBehavior and gun == null:
+			gun = b
+	check(is_equal_approx(float(gun.param("damage", 0.0)), 9.0), "Mk I nailgun: 9 dmg")
+	check(rs.upgrade_part(nail) and rs.upgrade_part(nail), "upgrade twice")
+	check(rs.get_tier(&"gun_nail") == 3 and is_equal_approx(float(gun.param("damage", 0.0)), 13.5), "Mk III nailgun: 13.5 dmg (%.1f)" % float(gun.param("damage", 0.0)))
+	var hp_before := robot.assembly.max_hp
+	rs.upgrade_part(part("chassis_box"))
+	check(robot.assembly.max_hp > hp_before, "chassis upgrade raises HP (%.0f -> %.0f)" % [hp_before, robot.assembly.max_hp])
+	rs.upgrade_part(nail)
+	rs.upgrade_part(nail)
+	check(rs.get_tier(&"gun_nail") == 5 and not rs.upgrade_part(nail), "Mk V is the cap")
+
+	# Offers: early levels lean on upgrades, later levels on new parts.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var early_new := 0
+	var late_new := 0
+	var total := 0
+	for k in 60:
+		for o in UpgradeOffers.roll(3, 2, rng):
+			total += 1
+			early_new += 1 if o["kind"] == "new" else 0
+		for o in UpgradeOffers.roll(3, 10, rng):
+			late_new += 1 if o["kind"] == "new" else 0
+	check(float(early_new) / float(total) < 0.3, "level 2 offers are mostly upgrades (%d%% new)" % int(100.0 * early_new / total))
+	check(late_new > early_new * 2, "level 10 offers more new parts (%d vs %d)" % [late_new, early_new])
+
+	# Walking over a part you already own upgrades it instead of adding a copy.
+	var legs_before := robot.assembly.part_count
+	rs.pickups.spawn_part(robot.global_position + Vector3(0.4, 0, 0), part("loco_biped_leg"))
+	for f in 45:
+		await get_tree().physics_frame
+	check(rs.get_tier(&"loco_biped_leg") == 2 and robot.assembly.part_count == legs_before, "duplicate leg pickup merges into Mk II")
+
+	# Strip to core and rebuild.
+	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
+	rs.inventory.clear()
+	bm.enter()
+	var n := bm.strip_all()
+	check(robot.assembly.part_count == 1 and rs.inventory.size() == n and n >= 5, "strip to core benches everything (%d parts)" % n)
+	bm.select_bench(rs.inventory.find(part("chassis_box")))
+	check(bm.attach_selected(robot.assembly.root, &"chassis"), "rebuild: chassis back on the core")
+	bm.select_bench(rs.inventory.find(part("loco_biped_leg")))
+	check(bm.attach_selected(_chassis(robot), &"bottom_0_1"), "rebuild: legs back on")
+	bm.exit()
+	main.queue_free()
+	await get_tree().process_frame
+
+
+func _test_energy_and_jets() -> void:
+	print("energy pool and jets")
+	var scene: Node = await _arena()
+	var robot: RobotController = rs.robot
+	var c := _chassis(robot)
+	for f in 20:
+		await get_tree().physics_frame
+	check(is_equal_approx(robot.energy, robot.get_energy_capacity()), "battery starts full")
+	check(robot.get_overcharge_mult() > 1.1, "spare power overcharges weapons (x%.2f)" % robot.get_overcharge_mult())
+	check(RobotAssembly.can_fit(part("mod_reactor"), c.data.get_socket(&"left_0_0")), "reactors fit mount sockets now")
+	check(RobotAssembly.can_fit(part("mod_battery"), c.data.get_socket(&"internal_0_0")), "batteries fit inside")
+
+	# Overdraw: three rivet cannons (4 power each) drain the battery, then brown out.
+	var rivets: Array = []
+	for cell in [&"left_0_0", &"right_0_0", &"top_0_0"]:
+		rivets.append(robot.assembly.attach(part("gun_rivet"), c, cell))
+	check(robot.assembly.is_browned_out(), "drawing more than generated")
+	var speed_ok := robot.get_top_speed()
+	var e0 := robot.energy
+	for f in 30:
+		await get_tree().physics_frame
+	check(robot.energy < e0 and not robot.browned_out, "the battery covers the deficit for a while")
+	robot.energy = 0.5
+	for f in 15:
+		await get_tree().physics_frame
+	check(robot.browned_out and robot.get_top_speed() < speed_ok, "empty battery = brownout, robot slows (%.1f -> %.1f)" % [speed_ok, robot.get_top_speed()])
+	for r in rivets:
+		robot.assembly.detach(r)
+	for f in 30:
+		await get_tree().physics_frame
+	check(not robot.browned_out, "power restored once draw is back under generation")
+
+	# Jets: hold jump to fly higher than a plain jump.
+	robot.energy = robot.get_energy_capacity()
+	for f in 10:
+		await get_tree().physics_frame
+	robot.try_jump()
+	var plain_peak := 0.0
+	for f in 90:
+		await get_tree().physics_frame
+		plain_peak = maxf(plain_peak, robot.global_position.y)
+	robot.assembly.attach(part("util_jet"), c, &"back_0_0")
+	robot.assembly.attach(part("util_jet"), c, &"back_1_0")
+	check(robot.assembly.jet_thrust > 0.0 and robot.assembly.jet_parts.size() == 2, "two jets attached")
+	robot.energy = robot.get_energy_capacity()
+	var e_before := robot.energy
+	robot.try_jump()
+	Input.action_press("jump")
+	var jet_peak := 0.0
+	var saw_jet := false
+	for f in 90:
+		await get_tree().physics_frame
+		jet_peak = maxf(jet_peak, robot.global_position.y)
+		saw_jet = saw_jet or robot.is_jetting
+	Input.action_release("jump")
+	check(saw_jet and jet_peak > plain_peak + 1.0, "jets boost the jump (%.1f m vs %.1f m)" % [jet_peak, plain_peak])
+	check(robot.energy < e_before, "jets burn battery")
+
+	# No legs: jets alone lift off.
+	for f in 60:
+		await get_tree().physics_frame
+	for s in [&"bottom_0_1", &"bottom_1_1"]:
+		robot.assembly.detach(c.get_child_in(s))
+	robot.energy = robot.get_energy_capacity()
+	for f in 10:
+		await get_tree().physics_frame
+	Input.action_press("jump")
+	var lift_peak := 0.0
+	for f in 40:
+		await get_tree().physics_frame
+		lift_peak = maxf(lift_peak, robot.global_position.y)
+	Input.action_release("jump")
+	check(lift_peak > 0.8, "legless robot takes off on jets (%.1f m)" % lift_peak)
+	scene.queue_free()
 	await get_tree().process_frame
 
 

@@ -39,6 +39,11 @@ var stability: float = 0.0
 var heat_passive: float = 0.0
 var heat_capacity: float = 0.0
 var heat_dissipation: float = 0.0
+var energy_capacity: float = 0.0
+## Jets: total upward thrust and energy they burn per second while firing.
+var jet_thrust: float = 0.0
+var jet_energy_per_sec: float = 0.0
+var jet_parts: Array[PartInstance] = []
 var locomotion: LocomotionProfile = LocomotionProfile.new()
 var part_count: int = 0
 ## Horizontal moment of inertia about the center of mass. Mass far from the
@@ -62,7 +67,6 @@ var links: Dictionary = {}
 var _mods: Dictionary = {}
 
 var _cpu_granted: Dictionary = {} # PartInstance -> true
-var _was_browned_out := false
 
 
 ## Builds the root part and starting loadout. Called by RobotController so
@@ -102,7 +106,7 @@ func attach_by_socket_name(part: PartData, socket_name: StringName, do_recompute
 
 static func can_fit(part: PartData, socket: SocketDef) -> bool:
 	return part != null and socket != null \
-		and int(part.attach_type) == socket.type \
+		and part.fits_type(socket.type) \
 		and part.attach_size <= socket.size
 
 
@@ -218,7 +222,7 @@ func armor_block_for(from_dir: Vector3) -> float:
 		if f == Vector3.ZERO:
 			continue
 		if f.dot(d) >= cos(deg_to_rad(a.data.armor_arc_deg * 0.5)):
-			pass_through *= 1.0 - a.data.armor_block
+			pass_through *= 1.0 - clampf(a.stat("armor_block", a.data.armor_block), 0.0, 0.9)
 	return 1.0 - pass_through
 
 
@@ -256,6 +260,8 @@ func has_cpu_for(inst: PartInstance) -> bool:
 	return _cpu_granted.has(inst)
 
 
+## Static deficit: parts draw more than they generate. The battery covers it
+## for a while; RobotController.browned_out is the actual stalled state.
 func is_browned_out() -> bool:
 	return power_draw > power_gen + 0.001
 
@@ -283,6 +289,10 @@ func recompute() -> void:
 	heat_passive = 0.0
 	heat_capacity = 0.0
 	heat_dissipation = 0.0
+	energy_capacity = 0.0
+	jet_thrust = 0.0
+	jet_energy_per_sec = 0.0
+	jet_parts.clear()
 	part_count = 0
 	inertia = 0.0
 	turn_factor = 1.0
@@ -332,24 +342,30 @@ func recompute() -> void:
 		part_count += 1
 		if d.armor_block > 0.0:
 			armor_parts.append(inst)
-		gyro_turn *= float(d.params.get("turn_rate_mult", 1.0))
+		gyro_turn *= inst.stat("turn_rate_mult", float(d.params.get("turn_rate_mult", 1.0)))
 		recover_time_mult = minf(recover_time_mult, float(d.params.get("recover_time_mult", 1.0)))
-		recover_pulse += float(d.params.get("recover_pulse", 0.0))
+		recover_pulse += inst.stat("recover_pulse", float(d.params.get("recover_pulse", 0.0)))
 		total_mass += d.mass
 		weighted += mass_point * d.mass
-		power_gen += d.power_output
+		# Upgradable stats are read at the part's tier.
+		power_gen += inst.stat("power_output", d.power_output)
 		power_draw += d.power_draw
-		cpu_capacity += d.cpu_output
-		max_hp += d.hp
-		pickup_radius += d.pickup_radius
-		stability += d.stability
+		cpu_capacity += int(round(inst.stat("cpu_output", float(d.cpu_output))))
+		max_hp += inst.stat("hp", d.hp)
+		pickup_radius += inst.stat("pickup_radius", d.pickup_radius)
+		stability += inst.stat("stability", d.stability)
 		heat_passive += d.heat_per_sec
-		heat_capacity += d.heat_capacity
-		heat_dissipation += d.heat_dissipation
+		heat_capacity += inst.stat("heat_capacity", d.heat_capacity)
+		heat_dissipation += inst.stat("heat_dissipation", d.heat_dissipation)
+		energy_capacity += inst.stat("energy_capacity", d.energy_capacity)
+		if d.params.has("jet_thrust"):
+			jet_parts.append(inst)
+			jet_thrust += inst.stat("jet_thrust", float(d.params["jet_thrust"]))
+			jet_energy_per_sec += float(d.params.get("jet_energy", 10.0))
 		if d.cpu_cost > 0:
 			cpu_users.append(inst)
 		if d.category == PartData.Category.LOCOMOTION:
-			loco_entries.append([d, mass_point])
+			loco_entries.append([inst, mass_point])
 			var fb := _part_bounds(inst, xf)
 			fb.position += lift
 			if has_support:
@@ -389,13 +405,6 @@ func recompute() -> void:
 	footprint = minf(support_max.x - support_min.x, support_max.y - support_min.y)
 	locomotion = LocomotionProfile.blend(loco_entries, center_of_mass)
 	stability += locomotion.extra_leg_stability()
-
-	var browned := is_browned_out()
-	if browned and not _was_browned_out:
-		EventBus.robot_brownout.emit()
-		for b in get_all_behaviors():
-			b.on_brownout()
-	_was_browned_out = browned
 
 	assembly_changed.emit()
 

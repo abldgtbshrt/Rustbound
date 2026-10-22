@@ -14,10 +14,15 @@ func setup(p_part: PartInstance, p_robot: RobotController) -> void:
 	on_attached()
 
 
+## A tuning value from PartData.params, scaled by the part's upgrade tier.
 func param(key: String, default_value: Variant) -> Variant:
 	if part == null or part.data == null:
 		return default_value
-	return part.data.params.get(key, default_value)
+	var v: Variant = part.data.params.get(key, default_value)
+	if v is float or v is int:
+		var scaled := part.stat(key, float(v))
+		return int(round(scaled)) if v is int else scaled
+	return v
 
 
 func on_attached() -> void:

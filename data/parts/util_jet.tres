@@ -1,0 +1,53 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/behaviors/utility/jet.gd" id="1_vj6vf"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_87t5w"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_bqglk"]
+
+[resource]
+script = ExtResource("2_87t5w")
+id = &"util_jet"
+display_name = "Jump Jet"
+category = 3
+mass = 0.8
+power_draw = 0.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 8.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+energy_capacity = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
+top_speed = 0.0
+thrust = 0.0
+grip = 1.0
+jump_force = 0.0
+mass_capacity = 0.0
+turn_rate_deg = 540.0
+attach_type = 1
+alt_attach_types = Array[int]([3])
+attach_size = 1
+sockets = Array[ExtResource("3_bqglk")]([])
+component_slots = 1
+behaviors = Array[Script]([ExtResource("1_vj6vf")])
+params = {
+"jet_energy": 10.0,
+"jet_thrust": 140.0
+}
+tags = PackedStringArray()
+upgrade_per_tier = {
+"jet_thrust": 0.2
+}
+drop_weight = 0.9
+scrap_value = 5
+visual_shape = 1
+visual_size = Vector3(0.26, 0.45, 0.26)
+visual_offset = Vector3(0, -0.05, 0)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.35, 0.33, 0.3, 1)

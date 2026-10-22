@@ -8,9 +8,10 @@ signal run_ended(victory: bool)
 signal leveled_up(new_level: int)
 signal xp_changed
 signal inventory_changed
+signal part_upgraded(part: PartData, tier: int)
 
 ## Where an acquired part ended up.
-enum Acquired { ATTACHED, BENCH, SALVAGED }
+enum Acquired { ATTACHED, BENCH, SALVAGED, UPGRADED }
 
 const MAX_INVENTORY := 8
 
@@ -27,7 +28,11 @@ var xp: int = 0
 ## Level-ups earned but not yet chosen.
 var pending_levelups: int = 0
 
-## Detached / unplaced parts ("the bench"). Used by build mode.
+## Upgrade tier per part id (missing = Mk I). Every copy of a part shares it.
+var part_tiers: Dictionary = {}
+
+## Detached / unplaced parts ("the bench"). Used by build mode. The cap only
+## limits new acquisitions; parts you detach always fit.
 var inventory: Array[PartData] = []
 ## When true, new parts attach to the best free socket automatically and only
 ## go to the bench if nothing fits.
@@ -51,6 +56,7 @@ func begin_new_run(p_seed: int = 0) -> void:
 	xp = 0
 	pending_levelups = 0
 	inventory.clear()
+	part_tiers.clear()
 	running = true
 	run_started.emit()
 	inventory_changed.emit()
@@ -94,11 +100,46 @@ func consume_levelup() -> void:
 	pending_levelups = maxi(pending_levelups - 1, 0)
 
 
+func get_tier(id: StringName) -> int:
+	return int(part_tiers.get(id, 1))
+
+
+func can_upgrade(part: PartData) -> bool:
+	return part != null and part.can_upgrade() and get_tier(part.id) < PartData.MAX_TIER
+
+
+## Raises every copy of `part` one Mk. Returns false at max tier.
+func upgrade_part(part: PartData) -> bool:
+	if not can_upgrade(part):
+		return false
+	var t := get_tier(part.id) + 1
+	part_tiers[part.id] = t
+	if robot != null:
+		robot.assembly.recompute()
+	part_upgraded.emit(part, t)
+	EventBus.message.emit("%s upgraded to %s" % [part.get_display_name(), PartData.tier_name(t)])
+	return true
+
+
+## True if a copy of `part` is on the robot or the bench.
+func owns_part(part: PartData) -> bool:
+	if inventory.has(part):
+		return true
+	if robot != null:
+		for p in robot.assembly.get_all_parts():
+			if p.data == part:
+				return true
+	return false
+
+
 ## Single entry point for every new part (pickups, level-ups, later: vending,
-## wrecks). Returns an Acquired value.
-func acquire_part(part: PartData, try_install: bool = true) -> int:
+## wrecks). With `merge_duplicates`, a part you already own upgrades instead
+## of piling on another copy. Returns an Acquired value.
+func acquire_part(part: PartData, try_install: bool = true, merge_duplicates: bool = false) -> int:
 	if part == null:
 		return Acquired.SALVAGED
+	if merge_duplicates and owns_part(part) and upgrade_part(part):
+		return Acquired.UPGRADED
 	if try_install and auto_install and robot != null and robot.alive:
 		if robot.assembly.auto_attach(part) != null:
 			EventBus.message.emit("Attached %s" % part.get_display_name())
@@ -111,8 +152,8 @@ func acquire_part(part: PartData, try_install: bool = true) -> int:
 	return Acquired.SALVAGED
 
 
-func add_to_inventory(part: PartData) -> bool:
-	if inventory.size() >= MAX_INVENTORY:
+func add_to_inventory(part: PartData, force: bool = false) -> bool:
+	if inventory.size() >= MAX_INVENTORY and not force:
 		return false
 	inventory.append(part)
 	inventory_changed.emit()

@@ -1,7 +1,8 @@
 class_name BuildMode
 extends Node3D
 
-## Tab toggles a close-up assembly view while the world runs at 10% speed.
+## Tab toggles a close-up assembly view. The world pauses (pause_world), or
+## runs at time_scale if that's turned off.
 ##
 ## - Pick a bench part, hover a socket to see a ghost, Q/E to rotate it in 45°
 ##   steps, click to attach. M toggles mirror placement: a second copy from the
@@ -14,6 +15,9 @@ extends Node3D
 signal toggled(active: bool)
 signal selection_changed
 
+## Stop the world entirely while building. Turn off to build in slow motion
+## (time_scale) instead, as originally designed.
+@export var pause_world: bool = true
 @export var time_scale: float = 0.1
 ## Screen-space pick radius, in pixels of the 3D viewport.
 @export var pick_radius_px: float = 22.0
@@ -39,6 +43,7 @@ var _highlight_mat: ShaderMaterial
 var _ghost_mat: StandardMaterial3D
 var _marker_mesh := SphereMesh.new()
 var _keys_down: Dictionary = {}
+var _paused_by_me := false
 
 
 func _ready() -> void:
@@ -82,7 +87,8 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	# Keys are polled so they work regardless of which viewport has focus.
-	if _pressed("build_mode") and not get_tree().paused:
+	var can_act := not get_tree().paused or _paused_by_me
+	if _pressed("build_mode") and can_act:
 		toggle()
 	if not active:
 		return
@@ -90,7 +96,7 @@ func _process(_delta: float) -> void:
 	if robot == null or not robot.alive:
 		exit()
 		return
-	if not get_tree().paused:
+	if not get_tree().paused or _paused_by_me:
 		if _pressed_key(KEY_Q):
 			rotate_selection(-1)
 		if _pressed_key(KEY_E):
@@ -102,7 +108,7 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not active or get_tree().paused:
+	if not active or (get_tree().paused and not _paused_by_me):
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		pick_at((event as InputEventMouseButton).position)
@@ -123,7 +129,11 @@ func enter() -> void:
 	if active or robot == null or not robot.alive:
 		return
 	active = true
-	Engine.time_scale = time_scale
+	if pause_world:
+		get_tree().paused = true
+		_paused_by_me = true
+	else:
+		Engine.time_scale = time_scale
 	_overlay.visible = true
 	if not robot.assembly.assembly_changed.is_connected(_rebuild_markers):
 		robot.assembly.assembly_changed.connect(_rebuild_markers)
@@ -137,6 +147,9 @@ func exit() -> void:
 		return
 	active = false
 	Engine.time_scale = 1.0
+	if _paused_by_me:
+		get_tree().paused = false
+		_paused_by_me = false
 	_set_selected_part(null)
 	selected_bench = -1
 	hovered = {}
@@ -235,13 +248,29 @@ func detach_selected() -> bool:
 	_set_selected_part(null)
 	var removed := robot.assembly.detach(inst)
 	for p in removed:
-		if not RunState.add_to_inventory(p):
-			RunState.add_scrap(p.scrap_value)
-			EventBus.message.emit("Bench full: %s salvaged" % p.get_display_name())
+		RunState.add_to_inventory(p, true) # detached parts always fit
 	EventBus.message.emit("Detached %d part(s) to bench" % removed.size())
 	_rebuild_markers()
 	selection_changed.emit()
 	return not removed.is_empty()
+
+
+## Everything except the core goes to the bench, to rebuild from scratch.
+func strip_all() -> int:
+	var robot := RunState.robot
+	if robot == null or robot.assembly.root == null:
+		return 0
+	_set_selected_part(null)
+	selected_bench = -1
+	var n := 0
+	for child in robot.assembly.root.get_child_parts():
+		for p in robot.assembly.detach(child):
+			RunState.add_to_inventory(p, true)
+			n += 1
+	EventBus.message.emit("Stripped %d parts to the bench" % n)
+	_rebuild_markers()
+	selection_changed.emit()
+	return n
 
 
 func scrap_selected() -> bool:

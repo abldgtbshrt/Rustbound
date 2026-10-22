@@ -1,4 +1,4 @@
-[gd_scene load_steps=29 format=3]
+[gd_scene load_steps=31 format=3]
 
 [ext_resource type="Script" path="res://scripts/levels/prototype_arena.gd" id="1_arena"]
 [ext_resource type="Script" path="res://scripts/robot/robot_controller.gd" id="2_rc"]
@@ -23,6 +23,8 @@
 [ext_resource type="Resource" path="res://data/parts/melee_chain_sword.tres" id="21_sword"]
 [ext_resource type="Resource" path="res://data/parts/util_rotator.tres" id="22_rot"]
 [ext_resource type="Resource" path="res://data/parts/armor_plate.tres" id="23_armor"]
+[ext_resource type="Resource" path="res://data/parts/util_jet.tres" id="24_jet"]
+[ext_resource type="Resource" path="res://data/parts/mod_battery.tres" id="25_battery"]
 
 [sub_resource type="Environment" id="Environment_arena"]
 background_mode = 1
@@ -56,7 +58,7 @@ height = 1.6
 
 [node name="PrototypeArena" type="Node3D"]
 script = ExtResource("1_arena")
-starter_pickups = Array[Resource("res://scripts/data/part_data.gd")]([ExtResource("20_strut"), ExtResource("20_strut"), ExtResource("11_leg"), ExtResource("11_leg"), ExtResource("21_sword"), ExtResource("22_rot"), ExtResource("23_armor"), ExtResource("16_gyro")])
+starter_pickups = Array[Resource("res://scripts/data/part_data.gd")]([ExtResource("24_jet"), ExtResource("25_battery")])
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_arena")

@@ -17,6 +17,21 @@ extends CharacterBody3D
 @export var base_pickup_radius: float = 2.5
 @export var base_hp: float = 50.0
 
+@export_group("Energy")
+## Battery size before Battery parts. Surplus power charges it; deficits and
+## jets drain it. Empty = brownout.
+@export var base_energy_capacity: float = 40.0
+## Max weapon fire-rate bonus when the battery is full and power is spare.
+@export var max_overcharge: float = 0.5
+## Movement speed while browned out.
+@export var brownout_speed_mult: float = 0.7
+## Brownout clears once the battery refills to this fraction.
+@export var brownout_recover_frac: float = 0.15
+
+@export_group("Jets")
+## Upward speed cap while thrusting.
+@export var jet_max_rise_speed: float = 7.0
+
 @export_group("Heat")
 @export var base_heat_capacity: float = 100.0
 ## Cooling while standing still. Moving adds airflow cooling on top.
@@ -66,6 +81,13 @@ var alive: bool = true
 var tip_ratio: float = 0.0
 var is_knocked_down: bool = false
 
+var energy: float = 0.0
+## Power stalled: battery empty while drawing more than you generate.
+var browned_out: bool = false
+## Net power this frame (generation - draw - jets), per second.
+var power_net: float = 0.0
+var is_jetting: bool = false
+
 var heat: float = 0.0
 var is_overheated: bool = false
 ## Seconds until the vent is ready again.
@@ -84,6 +106,7 @@ func _ready() -> void:
 	assembly.assembly_changed.connect(_on_assembly_changed)
 	assembly.build(self)
 	hp = max_hp
+	energy = get_energy_capacity()
 
 
 func _exit_tree() -> void:
@@ -102,7 +125,28 @@ func get_load_ratio() -> float:
 ## 1.0 when within capacity, 0.0 at double capacity (can't move).
 func get_speed_multiplier() -> float:
 	var load := get_load_ratio()
-	return 1.0 if load <= 1.0 else clampf(2.0 - load, 0.0, 1.0)
+	var m := 1.0 if load <= 1.0 else clampf(2.0 - load, 0.0, 1.0)
+	return m * (brownout_speed_mult if browned_out else 1.0)
+
+
+func get_energy_capacity() -> float:
+	return base_energy_capacity + assembly.energy_capacity
+
+
+## Fire-rate multiplier for weapons: up to 1 + max_overcharge when the battery
+## is full and generation exceeds draw. Spare power is never wasted.
+func get_overcharge_mult() -> float:
+	if browned_out or energy < get_energy_capacity() - 0.01:
+		return 1.0
+	var spare := assembly.power_gen - assembly.power_draw
+	if spare <= 0.0:
+		return 1.0
+	return 1.0 + max_overcharge * clampf(spare / maxf(assembly.power_gen, 1.0), 0.0, 1.0)
+
+
+## 0..1: how much of their demand powered parts get. 1 unless browned out.
+func get_power_supply() -> float:
+	return assembly.get_power_ratio() if browned_out else 1.0
 
 
 func get_top_speed() -> float:
@@ -164,6 +208,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= gravity * delta
 	elif Input.is_action_just_pressed("jump"):
 		try_jump()
+	_update_jets(delta, Input.is_action_pressed("jump"))
 
 	if not is_on_floor():
 		_fall_speed = maxf(_fall_speed, -velocity.y)
@@ -179,12 +224,43 @@ func _physics_process(delta: float) -> void:
 		_fall_speed = 0.0
 	_was_on_floor = on_floor
 
+	_update_energy(delta)
 	_update_heat(delta)
 	_update_tipping(delta, (hvel - start_hvel) / maxf(delta, 0.0001))
 
 	if alive:
 		for b in assembly.get_all_behaviors():
 			b.on_tick(delta)
+
+
+## Jets fire while jump is held: in the air, or from the ground if the robot
+## can't jump. Thrust / mass lifts you; each jet burns battery energy.
+func _update_jets(delta: float, holding: bool) -> void:
+	var asm := assembly
+	var want := holding and alive and not is_knocked_down and asm.jet_thrust > 0.0 and energy > 0.0 and not browned_out
+	if want and is_on_floor() and asm.locomotion.can_jump and velocity.y <= 0.01:
+		want = false # legs jump first; jets take over once airborne
+	is_jetting = want
+	if not want:
+		return
+	var lift := asm.jet_thrust / get_mass()
+	velocity.y = minf(velocity.y + lift * delta, jet_max_rise_speed)
+
+
+func _update_energy(delta: float) -> void:
+	var asm := assembly
+	var jet_draw := asm.jet_energy_per_sec if is_jetting else 0.0
+	power_net = asm.power_gen - asm.power_draw - jet_draw
+	var cap := get_energy_capacity()
+	energy = clampf(energy + power_net * delta, 0.0, cap)
+	if not browned_out and energy <= 0.0 and power_net < 0.0:
+		browned_out = true
+		EventBus.robot_brownout.emit()
+		for b in asm.get_all_behaviors():
+			b.on_brownout()
+	elif browned_out and (energy >= cap * brownout_recover_frac or power_net >= 0.0 and energy > 0.0):
+		browned_out = false
+		EventBus.robot_power_restored.emit()
 
 
 ## Jumps if on the floor with jump-capable locomotion. Heavier = lower.

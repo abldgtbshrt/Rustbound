@@ -26,11 +26,12 @@ const JUMP_LOSS_PER_EXTRA_LEG := 0.22
 const STABILITY_PER_EXTRA_LEG := 0.25
 
 
-## entries: Array of [PartData, Vector3 (assembly-local mass point)]
 func extra_leg_stability() -> float:
 	return STABILITY_PER_EXTRA_LEG * float(maxi(leg_count - 2, 0))
 
 
+## entries: Array of [PartInstance, Vector3 (assembly-local mass point)].
+## Stats are read at each part's upgrade tier.
 static func blend(entries: Array, center_of_mass: Vector3) -> LocomotionProfile:
 	var prof := LocomotionProfile.new()
 	if entries.is_empty():
@@ -47,22 +48,23 @@ static func blend(entries: Array, center_of_mass: Vector3) -> LocomotionProfile:
 
 	var total_w := 0.0
 	for e in entries:
-		var d: PartData = e[0]
+		var inst: PartInstance = e[0]
+		var d := inst.data
 		var p: Vector3 = e[1]
 		var dist := Vector2(p.x - center_of_mass.x, p.z - center_of_mass.z).length()
 		var w := 1.0 / (0.25 + dist)
 		total_w += w
-		prof.top_speed += d.top_speed * w
+		prof.top_speed += inst.stat("top_speed", d.top_speed) * w
 		prof.grip += d.grip * w
-		prof.jump_force += d.jump_force * w
+		prof.jump_force += inst.stat("jump_force", d.jump_force) * w
 		prof.turn_rate_deg += d.turn_rate_deg * w
-		prof.thrust += d.thrust
-		prof.mass_capacity += d.mass_capacity
+		prof.thrust += inst.stat("thrust", d.thrust)
+		prof.mass_capacity += inst.stat("mass_capacity", d.mass_capacity)
 		if d.tags.has("leg"):
 			prof.leg_count += 1
-		prof.stomp += float(d.params.get("stomp", 0.0))
-		prof.ram += float(d.params.get("ram", 0.0))
-		prof.crush += float(d.params.get("crush", 0.0))
+		prof.stomp += inst.stat("stomp", float(d.params.get("stomp", 0.0)))
+		prof.ram += inst.stat("ram", float(d.params.get("ram", 0.0)))
+		prof.crush += inst.stat("crush", float(d.params.get("crush", 0.0)))
 
 	prof.top_speed /= total_w
 	prof.grip /= total_w
