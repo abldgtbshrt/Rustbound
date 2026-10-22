@@ -1,0 +1,27 @@
+; Engine configuration file.
+; It's best edited using the editor and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Rustbound"
+run/main_scene="res://scenes/levels/prototype_arena.tscn"
+config/features=PackedStringArray("4.2")
+
+[autoload]
+
+EventBus="*res://autoload/EventBus.gd"
+RunState="*res://autoload/RunState.gd"
+MetaSave="*res://autoload/MetaSave.gd"
+LootTable="*res://autoload/LootTable.gd"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_3d=0
