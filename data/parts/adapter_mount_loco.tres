@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_j2u03"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_5a43i"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_sbywm"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_nnr4b"]
 
-[sub_resource type="Resource" id="Resource_ofgh5"]
-script = ExtResource("2_5a43i")
+[sub_resource type="Resource" id="Resource_qthnb"]
+script = ExtResource("2_nnr4b")
 marker_name = &"loco"
 type = 3
 size = 1
@@ -12,7 +12,7 @@ position = Vector3(0, -0.15, 0)
 rotation_degrees = Vector3(0, 0, 0)
 
 [resource]
-script = ExtResource("1_j2u03")
+script = ExtResource("1_sbywm")
 id = &"adapter_mount_loco"
 display_name = "Mount-to-Leg Adapter"
 category = 6
@@ -25,6 +25,8 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -33,7 +35,7 @@ mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 1
 attach_size = 1
-sockets = Array[ExtResource("2_5a43i")]([SubResource("Resource_ofgh5")])
+sockets = Array[ExtResource("2_nnr4b")]([SubResource("Resource_qthnb")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}

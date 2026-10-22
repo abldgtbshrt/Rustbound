@@ -15,6 +15,8 @@ signal robot_brownout
 @warning_ignore("unused_signal")
 signal robot_overheat
 @warning_ignore("unused_signal")
+signal robot_cooled
+@warning_ignore("unused_signal")
 signal robot_damaged(amount: float)
 @warning_ignore("unused_signal")
 signal robot_knocked_down

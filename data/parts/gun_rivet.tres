@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_ibrx0"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_jelvu"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_tyhho"]
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_vcfot"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_fk6mi"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_fw03l"]
 
 [resource]
-script = ExtResource("2_jelvu")
+script = ExtResource("2_fk6mi")
 id = &"gun_rivet"
 display_name = "Rivet Cannon"
 category = 3
@@ -18,6 +18,8 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -26,13 +28,14 @@ mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 1
 attach_size = 2
-sockets = Array[ExtResource("3_tyhho")]([])
+sockets = Array[ExtResource("3_fw03l")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_ibrx0")])
+behaviors = Array[Script]([ExtResource("1_vcfot")])
 params = {
 "arc_deg": 120.0,
 "damage": 40.0,
 "fire_rate": 1.2,
+"heat_per_shot": 9.0,
 "knockback": 6.0,
 "muzzle": 0.8,
 "pierce": 3,

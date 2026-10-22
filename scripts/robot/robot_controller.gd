@@ -17,6 +17,13 @@ extends CharacterBody3D
 @export var base_pickup_radius: float = 2.5
 @export var base_hp: float = 50.0
 
+@export_group("Heat")
+@export var base_heat_capacity: float = 100.0
+@export var base_heat_dissipation: float = 6.0
+@export var overheat_dps: float = 6.0
+## Overheat clears once heat drops below this fraction of capacity.
+@export var overheat_recover_frac: float = 0.8
+
 @onready var assembly: RobotAssembly = $RobotAssembly
 @onready var collision: CollisionShape3D = $CollisionShape3D
 
@@ -30,6 +37,9 @@ var alive: bool = true
 ## Current tip ratio (1.0 = at the edge of falling over). Read by the HUD.
 var tip_ratio: float = 0.0
 var is_knocked_down: bool = false
+
+var heat: float = 0.0
+var is_overheated: bool = false
 
 var _accel_smoothed := Vector3.ZERO
 var _tip_timer := 0.0
@@ -131,11 +141,38 @@ func _physics_process(delta: float) -> void:
 			b.on_land()
 	_was_on_floor = on_floor
 
+	_update_heat(delta)
 	_update_tipping(delta, (hvel - start_hvel) / maxf(delta, 0.0001))
 
 	if alive:
 		for b in assembly.get_all_behaviors():
 			b.on_tick(delta)
+
+
+func get_heat_capacity() -> float:
+	return base_heat_capacity + assembly.heat_capacity
+
+
+func get_heat_dissipation() -> float:
+	return base_heat_dissipation + assembly.heat_dissipation
+
+
+func add_heat(amount: float) -> void:
+	heat = maxf(heat + amount, 0.0)
+
+
+func _update_heat(delta: float) -> void:
+	var cap := get_heat_capacity()
+	heat += (assembly.heat_passive - get_heat_dissipation()) * delta
+	heat = clampf(heat, 0.0, cap * 1.5)
+	if not is_overheated and heat > cap:
+		is_overheated = true
+		EventBus.robot_overheat.emit()
+	elif is_overheated and heat < cap * overheat_recover_frac:
+		is_overheated = false
+		EventBus.robot_cooled.emit()
+	if is_overheated and alive:
+		take_damage(overheat_dps * delta)
 
 
 ## Ratio of tipping torque to restoring torque. Static so it can be tested.

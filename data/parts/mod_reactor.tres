@@ -1,22 +1,24 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_nsm3c"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_q7ft8"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_emsrg"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_388s7"]
 
 [resource]
-script = ExtResource("1_nsm3c")
+script = ExtResource("1_emsrg")
 id = &"mod_reactor"
 display_name = "Reactor"
 category = 4
 mass = 1.8
 power_draw = 0.0
-heat_per_sec = 1.0
+heat_per_sec = 2.0
 cpu_cost = 0
 hp = 0.0
 power_output = 8.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -25,7 +27,7 @@ mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 2
 attach_size = 1
-sockets = Array[ExtResource("2_q7ft8")]([])
+sockets = Array[ExtResource("2_388s7")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}

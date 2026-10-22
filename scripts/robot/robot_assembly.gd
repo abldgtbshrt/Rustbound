@@ -34,6 +34,9 @@ var cpu_used: int = 0
 var max_hp: float = 0.0
 var pickup_radius: float = 0.0
 var stability: float = 0.0
+var heat_passive: float = 0.0
+var heat_capacity: float = 0.0
+var heat_dissipation: float = 0.0
 var locomotion: LocomotionProfile = LocomotionProfile.new()
 var part_count: int = 0
 
@@ -192,6 +195,9 @@ func recompute() -> void:
 	max_hp = 0.0
 	pickup_radius = 0.0
 	stability = 0.0
+	heat_passive = 0.0
+	heat_capacity = 0.0
+	heat_dissipation = 0.0
 	part_count = 0
 	_cpu_granted.clear()
 
@@ -237,6 +243,9 @@ func recompute() -> void:
 		max_hp += d.hp
 		pickup_radius += d.pickup_radius
 		stability += d.stability
+		heat_passive += d.heat_per_sec
+		heat_capacity += d.heat_capacity
+		heat_dissipation += d.heat_dissipation
 		if d.cpu_cost > 0:
 			cpu_users.append(inst)
 		if d.category == PartData.Category.LOCOMOTION:

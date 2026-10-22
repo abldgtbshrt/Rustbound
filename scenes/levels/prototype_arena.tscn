@@ -7,7 +7,7 @@
 [ext_resource type="Script" path="res://scripts/systems/enemy_manager.gd" id="5_em"]
 [ext_resource type="Script" path="res://scripts/systems/projectile_pool.gd" id="6_pp"]
 [ext_resource type="Script" path="res://scripts/systems/pickup_manager.gd" id="7_pm"]
-[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="8_hud"]
+[ext_resource type="Script" path="res://scripts/robot/build_mode.gd" id="8_build"]
 [ext_resource type="Resource" path="res://data/parts/core_scrapper.tres" id="9_core"]
 [ext_resource type="Resource" path="res://data/parts/chassis_box.tres" id="10_box"]
 [ext_resource type="Resource" path="res://data/parts/loco_biped_leg.tres" id="11_leg"]
@@ -109,5 +109,5 @@ script = ExtResource("6_pp")
 [node name="PickupManager" type="Node3D" parent="."]
 script = ExtResource("7_pm")
 
-[node name="HUD" type="CanvasLayer" parent="."]
-script = ExtResource("8_hud")
+[node name="BuildMode" type="Node3D" parent="."]
+script = ExtResource("8_build")

@@ -23,6 +23,9 @@ func _run() -> void:
 	_test_overload()
 	await _test_arena_loop()
 	await _test_part_pickup()
+	await _test_heat()
+	await _test_progression()
+	await _test_main_scene_flow()
 	await _bench_horde()
 	print("")
 	print("%d checks, %d failed" % [_checks, _failures])
@@ -204,14 +207,160 @@ func _test_part_pickup() -> void:
 	check(robot.assembly.part_count == before + 1, "walking over a part attaches it (%d -> %d)" % [before, robot.assembly.part_count])
 	check(robot.assembly.stability > gyro_stab, "attached gyro changed stats")
 
-	# A chassis can't attach anywhere (core socket taken) -> salvaged.
-	var scrap_before: int = rs.scrap
+	# A chassis can't attach anywhere (core socket taken) -> goes to the bench.
 	rs.pickups.spawn_part(robot.global_position, part("chassis_tower"))
 	for f in 60:
 		await get_tree().physics_frame
-	check(rs.scrap > scrap_before, "unattachable part is salvaged for scrap")
+	check(rs.inventory.size() == 1 and rs.inventory[0].id == &"chassis_tower", "unattachable part goes to the bench")
 	check(rs.pickups.parts.is_empty(), "pickups consumed")
+
+	# Full bench -> salvaged for scrap.
+	while rs.inventory.size() < rs.MAX_INVENTORY:
+		rs.add_to_inventory(part("armor_plate"))
+	var scrap_before: int = rs.scrap
+	check(rs.acquire_part(part("chassis_tower")) == rs.Acquired.SALVAGED and rs.scrap > scrap_before, "full bench salvages for scrap")
+	rs.inventory.clear()
+
+	# Auto-install off -> bench even if a socket fits.
+	rs.auto_install = false
+	check(rs.acquire_part(part("mod_gyro")) == rs.Acquired.BENCH, "auto-install off sends parts to the bench")
+	rs.auto_install = true
 	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _test_heat() -> void:
+	print("heat")
+	var scene: Node = load("res://scenes/levels/prototype_arena.tscn").instantiate()
+	get_tree().root.add_child(scene)
+	await get_tree().process_frame
+	var robot: RobotController = rs.robot
+	rs.enemies.spawn_enabled = false
+	check(robot.heat == 0.0 and not robot.is_overheated, "starts cool")
+	var cap := robot.get_heat_capacity()
+	robot.add_heat(cap + 20.0)
+	var hp_before := robot.hp
+	for f in 30:
+		await get_tree().physics_frame
+	check(robot.is_overheated, "overheats above capacity")
+	check(robot.hp < hp_before, "overheat deals damage (%.1f -> %.1f)" % [hp_before, robot.hp])
+	robot.heat = cap * 0.5
+	for f in 2:
+		await get_tree().physics_frame
+	check(not robot.is_overheated, "cools below the recovery threshold")
+
+	var sink := robot.assembly.auto_attach(part("mod_heat_sink"))
+	check(sink != null and robot.get_heat_capacity() > cap, "heat sink raises capacity (%.0f -> %.0f)" % [cap, robot.get_heat_capacity()])
+	robot.assembly.auto_attach(part("mod_reactor")) # second internal slot? box has 2; sink took one
+	check(robot.assembly.heat_passive > 0.0, "reactor adds passive heat")
+
+	# Firing adds heat.
+	robot.heat = 0.0
+	rs.enemies.spawn(0, robot.global_position + Vector3(0, 0, -6))
+	rs.enemies.hp[0] = 1.0e6
+	var gun: NailgunBehavior = null
+	for b in robot.assembly.get_all_behaviors():
+		if b is NailgunBehavior:
+			gun = b
+	var shots0 := gun.shots_fired
+	robot.base_heat_dissipation = 0.0
+	robot.assembly.heat_passive = 0.0
+	for f in 60:
+		await get_tree().physics_frame
+	check(gun.shots_fired > shots0 and robot.heat > 0.0, "shots generate heat (%.1f after %d shots)" % [robot.heat, gun.shots_fired - shots0])
+	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _test_progression() -> void:
+	print("xp / level")
+	rs.begin_new_run(1234)
+	var need: int = rs.xp_to_next()
+	check(need > 0 and rs.xp_required(2) > need, "xp curve increases (%d, %d)" % [need, rs.xp_required(2)])
+	rs.add_xp(need - 1)
+	check(rs.level == 1 and rs.pending_levelups == 0, "no level before threshold")
+	rs.add_xp(1)
+	check(rs.level == 2 and rs.pending_levelups == 1 and rs.xp == 0, "levels up at threshold")
+	rs.add_xp(rs.xp_required(2) + rs.xp_required(3))
+	check(rs.level == 4 and rs.pending_levelups == 3, "big xp grants several level-ups")
+	var offers: Array = get_node("/root/LootTable").roll_choices(3)
+	var distinct: bool = offers.size() == 3 and offers[0] != offers[1] and offers[1] != offers[2] and offers[0] != offers[2]
+	check(distinct, "level-up offers 3 distinct parts")
+	rs.end_run(false)
+
+
+func _test_main_scene_flow() -> void:
+	print("main scene: level-up, build mode, PS2 view")
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var container: SubViewportContainer = main.get_node("Screen")
+	check(container.stretch_shrink >= 1 and main.get_node("Screen/GameViewport/PrototypeArena") != null, "arena renders inside the low-res viewport (shrink %d)" % container.stretch_shrink)
+	var robot: RobotController = rs.robot
+	rs.enemies.spawn_enabled = false
+	rs.pickups.clear_all()
+
+	# Level-up pauses and offers parts.
+	var lvl: LevelUpScreen = main.get_node("LevelUpScreen")
+	var parts_before := robot.assembly.part_count
+	rs.add_xp(rs.xp_to_next())
+	await get_tree().process_frame
+	check(lvl.is_open() and get_tree().paused and lvl.offers.size() == 3, "level-up opens, pauses, offers 3")
+	lvl.choose(0)
+	check(not lvl.is_open() and not get_tree().paused, "choosing closes and unpauses")
+	check(robot.assembly.part_count == parts_before + 1 or rs.inventory.size() == 1, "chosen part installed or benched")
+	# Repair option.
+	robot.hp = 10.0
+	rs.add_xp(rs.xp_to_next())
+	await get_tree().process_frame
+	lvl.choose(-1)
+	check(robot.hp > 10.0 and not get_tree().paused, "skip repairs the robot")
+
+	# Build mode.
+	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
+	var panel: BuildPanel = main.get_node("BuildPanel")
+	bm.enter()
+	check(bm.active and is_equal_approx(Engine.time_scale, 0.1) and panel.visible, "build mode slows time to 10% and shows the panel")
+	rs.inventory.clear()
+	rs.inventory_changed.emit()
+	var leg: PartInstance = null
+	for p in robot.assembly.get_all_parts():
+		if p.data.id == &"loco_biped_leg" and p.parent_socket == &"loco_l":
+			leg = p
+	var chassis := leg.parent_part
+	var count := robot.assembly.part_count
+	var loco_n := robot.assembly.locomotion.part_count
+	bm.select_part(leg)
+	check(bm.detach_selected(), "detach leg")
+	check(rs.inventory.size() >= 1 and robot.assembly.locomotion.part_count == loco_n - 1, "leg moved to bench, one fewer locomotion part")
+	check(robot.assembly.part_count < count, "part count dropped")
+	var idx: int = rs.inventory.find(part("loco_biped_leg"))
+	bm.select_bench(idx)
+	check(bm.get_compatible_sockets(part("loco_biped_leg")).size() >= 1, "free locomotion sockets highlighted")
+
+	# Click the socket marker through the camera, like a player would.
+	for f in 3:
+		await get_tree().process_frame
+	var cam := bm.get_viewport().get_camera_3d()
+	var sock := chassis.data.get_socket(&"loco_l")
+	var world := chassis.global_transform * chassis.get_socket_transform(sock).origin
+	bm.pick_at(cam.unproject_position(world))
+	var reattached := chassis.get_child_in(&"loco_l") != null
+	check(reattached and robot.assembly.locomotion.part_count == loco_n, "clicking the socket re-attaches the leg")
+
+	# Scrap from the bench.
+	rs.add_to_inventory(part("armor_plate"))
+	bm.select_bench(rs.inventory.size() - 1)
+	var scrap0: int = rs.scrap
+	check(bm.scrap_selected() and rs.scrap > scrap0, "scrap a bench part for scrap")
+	check(not bm.scrap_selected(), "scrapping with nothing selected is a no-op")
+	bm.select_part(robot.assembly.root)
+	check(not bm.detach_selected(), "core can't be detached")
+
+	bm.exit()
+	check(not bm.active and is_equal_approx(Engine.time_scale, 1.0) and not panel.visible, "exit restores time and hides panel")
+	main.queue_free()
 	await get_tree().process_frame
 
 

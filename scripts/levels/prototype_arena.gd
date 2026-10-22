@@ -10,7 +10,13 @@ extends Node3D
 @export var starter_pickups: Array[PartData] = []
 
 
+var _restart_was_down := false
+
+
 func _ready() -> void:
+	# A reload can happen mid-build-mode or mid-level-up.
+	Engine.time_scale = 1.0
+	get_tree().paused = false
 	RunState.begin_new_run(run_seed)
 	_build_walls()
 	_scatter_obstacles()
@@ -21,9 +27,13 @@ func _ready() -> void:
 			pickups.spawn_part(Vector3(cos(ang), 0.0, sin(ang)) * 6.0, starter_pickups[k])
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("restart"):
+func _process(_delta: float) -> void:
+	# Polled so it works inside the PS2 SubViewport too. Only after death, or
+	# with the game unpaused, so R doesn't clash with level-up's repair key.
+	var down := Input.is_action_pressed("restart")
+	if down and not _restart_was_down and not get_tree().paused:
 		get_tree().reload_current_scene()
+	_restart_was_down = down
 
 
 func _build_walls() -> void:

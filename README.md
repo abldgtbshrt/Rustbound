@@ -2,7 +2,7 @@
 
 Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your robot out of parts, and the build's physics decides how it moves.
 
-## What's playable (Prototype loop)
+## What's playable
 
 - **Socket-graph robots**: Core → Chassis → legs/wheels/treads, mounts, internals, head. Sockets have a type and size; adapters convert socket types (e.g. a wheel on a side mount).
 - **Physics from the build**: mass, center of mass, support footprint and height are computed from where parts actually sit. They drive acceleration (thrust / mass), top speed (slows past mass capacity, stops at 2×), sideways drift from asymmetric builds, visual lean, and **tipping over** (1.5 s knockdown) when a top-heavy robot turns or brakes too hard. Gyros counter it.
@@ -12,7 +12,12 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 - **Horde**: MultiMesh enemies in packed arrays with a spatial hash, ramping waves, 3 enemy types. ~600 enemies in GDScript.
 - **Pooled projectiles** hit-tested against the spatial hash (no Area3D per bullet).
 - **Pickups**: scrap gems are magnet-pulled; parts must be walked over and auto-attach to the free socket that keeps you balanced, or get salvaged for scrap if nothing fits.
-- **Debug HUD** shows mass, power, CPU, CoM, footprint and live tilt.
+- **Level-ups**: scrap fills the XP bar. Each level pauses and offers 3 parts (keys 1-3), or skip to repair 30% (R).
+- **The bench**: new parts auto-install on the most balanced free socket (toggle in build mode); otherwise they go to an 8-slot bench, and overflow is scrapped.
+- **Build mode** (Tab): the world drops to 10% speed and the camera moves in. Free sockets show as colored dots (gray structural, orange mount, cyan internal, green locomotion); pick a bench part and the sockets it fits grow. Click to attach. Click a part on the robot to detach it (and everything on it) to the bench, or scrap it. The pink dot and green box show center of mass and footprint as you build.
+- **Heat**: weapons add heat per shot, reactors add it passively, heat sinks raise capacity and cooling. Over capacity you overheat and take damage until you cool to 80%.
+- **Budget HUD**: power, heat, CPU, mass and tilt bars turn red when you're over. F3 shows the detailed physics readout.
+- **PS2 look**: the 3D view renders at ~360 lines and is upscaled with nearest-neighbor, ordered dithering and 15-bit color, while the UI stays sharp. F4 toggles it.
 
 ### Controls
 
@@ -20,9 +25,13 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 |---|---|
 | WASD / arrows | Move (camera-relative) |
 | Space | Jump (legs only) |
+| Tab | Build mode (10% time) |
+| Left click | Build mode: attach / select |
+| 1 / 2 / 3, R | Level-up: pick a part / repair |
 | Right mouse drag | Orbit camera |
 | Mouse wheel | Zoom |
 | R | Restart run |
+| F3 / F4 | Debug readout / PS2 effect |
 
 Weapons fire on their own.
 
@@ -37,7 +46,7 @@ Weapons fire on their own.
 godot --headless --fixed-fps 60 res://tests/run_tests.tscn
 ```
 
-43 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, part pickup, and a 600-enemy benchmark. Exit code is non-zero on failure.
+72 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), and a 600-enemy benchmark. Exit code is non-zero on failure.
 
 ## Content
 
@@ -52,13 +61,14 @@ To try the tippy Tower chassis, swap `chassis_box` for `chassis_tower` on `Robot
 ```
 autoload/          EventBus, RunState (run state + system refs), LootTable, MetaSave
 data/parts|enemies starter content (.tres)
-scenes/levels/     prototype_arena.tscn
+scenes/main.tscn   root: low-res game viewport + UI layers
+scenes/levels/     prototype_arena.tscn (3D only; run main.tscn to play)
 scripts/data/      PartData, SocketDef, EnemyData
-scripts/robot/     RobotAssembly, PartInstance, RobotController, LocomotionProfile, CameraRig, PartVisuals
+scripts/robot/     RobotAssembly, PartInstance, RobotController, LocomotionProfile, CameraRig, PartVisuals, BuildMode
 scripts/behaviors/ PartBehavior + weapons/nailgun.gd
 scripts/systems/   EnemyManager, ProjectilePool, PickupManager
-scripts/ui/        Hud
-shaders/           ps2_vertex.gdshader
+scripts/ui/        Hud, LevelUpScreen, BuildPanel, UiStyle
+shaders/           ps2_vertex (wobble), ps2_post (dither + quantize)
 tests/             run_tests.tscn
 tools/             content generator
 ```
@@ -67,7 +77,7 @@ tools/             content generator
 
 - Enemies ignore obstacles (they path straight at you).
 - Blended locomotion doesn't check which parts touch the ground.
-- Heat is tracked on parts but not simulated yet.
+- Level-up offers parts only; components arrive with the Depth milestone.
 - Parts are placeholder primitives; `PartData.scene` accepts authored `.glb` scenes, and a `Marker3D` named after a socket overrides its transform.
 
 ## Milestone checklist
@@ -79,11 +89,12 @@ tools/             content generator
   - [x] Starter enemy spawner and basic wave pressure
   - [x] One weapon behavior and locomotion variants (biped, wheel, tread)
   - [x] Part pickup + attach flow
-- [ ] Core loop
-  - [ ] Add level-up part/component choice UI
-  - [ ] Add build mode with time slowdown (manual socket placement)
-  - [ ] Add power/heat/cpu feedback UI
-  - [ ] Heat simulation and overheat
+- [x] Core loop
+  - [x] Level-up part choice UI (components come with Depth)
+  - [x] Build mode with time slowdown, manual socket placement, detach/scrap
+  - [x] Power/heat/CPU/mass/tilt feedback UI
+  - [x] Heat simulation and overheat
+  - [x] PS2 low-res presentation (pixel upscale, dither, 15-bit color)
 - [ ] Exploration depth
   - [ ] Add terrain interaction tags (water, magnetized, weak-floor)
   - [ ] Add wreck-site salvage interactions
@@ -91,4 +102,3 @@ tools/             content generator
 - [ ] Progression and polish
   - [ ] Add hangar/meta progression shell
   - [ ] Add boss encounter stub
-  - [ ] Add PS2 post effects (dither/fog/pixel upscale)

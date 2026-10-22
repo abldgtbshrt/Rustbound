@@ -56,6 +56,18 @@ func roll_part(context: Dictionary = {}) -> PartData:
 	return parts.back()
 
 
+## Up to `count` distinct parts for a level-up offer.
+func roll_choices(count: int, context: Dictionary = {}) -> Array[PartData]:
+	var out: Array[PartData] = []
+	var attempts := 0
+	while out.size() < count and attempts < count * 20:
+		attempts += 1
+		var p := roll_part(context)
+		if p != null and not out.has(p):
+			out.append(p)
+	return out
+
+
 ## Kept for the original scaffold API.
 func roll_part_id(rng: RandomNumberGenerator, context: Dictionary = {}) -> StringName:
 	if parts.is_empty():

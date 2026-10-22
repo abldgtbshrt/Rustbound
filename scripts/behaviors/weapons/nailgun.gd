@@ -3,7 +3,8 @@ extends PartBehavior
 
 ## Auto-firing projectile weapon. Reads tuning from PartData.params:
 ##   fire_rate (shots/s), damage, range, speed, arc_deg, spread_deg,
-##   recoil (impulse per shot), pierce, knockback, muzzle (m ahead of mount)
+##   recoil (impulse per shot), pierce, knockback, muzzle (m ahead of mount),
+##   heat_per_shot, hot_fire_rate_mult (fire-rate multiplier while overheated)
 ## With CPU it aims at the nearest enemy inside its mount arc; without CPU it
 ## fires straight along the mount's facing whenever something is in range.
 
@@ -37,6 +38,9 @@ func on_tick(delta: float) -> void:
 	var pierce := int(param("pierce", 0))
 	var knockback := float(param("knockback", 1.5))
 	var muzzle := float(param("muzzle", 0.45))
+	var heat_per_shot := float(param("heat_per_shot", 0.0))
+	if robot.is_overheated:
+		fire_rate *= float(param("hot_fire_rate_mult", 1.0))
 
 	# Brownout: shots stutter in proportion to the power deficit.
 	if asm.is_browned_out() and _rng.randf() > asm.get_power_ratio():
@@ -67,5 +71,6 @@ func on_tick(delta: float) -> void:
 	dir = dir.rotated(Vector3.UP, spread)
 	pool.fire(origin, dir * speed, damage, max_range / speed * 1.15, 0.25, pierce, knockback)
 	robot.apply_recoil(-Vector3(dir.x, 0.0, dir.z) * recoil)
+	robot.add_heat(heat_per_shot)
 	shots_fired += 1
 	_cooldown = 1.0 / maxf(fire_rate, 0.01)
