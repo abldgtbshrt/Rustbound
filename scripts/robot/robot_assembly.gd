@@ -1,70 +1,331 @@
 class_name RobotAssembly
 extends Node3D
 
+## Owns the part tree and derives every physical stat from it. Nothing here is
+## read from a stat card: mass, center of mass, footprint and height come from
+## where parts actually sit.
+
 signal assembly_changed
 
 @export var root_part_data: PartData
+## Attached in order when the robot is built.
+@export var starting_parts: Array[PartData] = []
+## Optional socket name per starting part (same index). The first part in the
+## tree with a free socket of that name is used. Empty = auto_attach().
+@export var starting_sockets: Array[StringName] = []
 
+var robot: RobotController
 var root: PartInstance
+
+# Derived stats (assembly-local space; y = 0 is the ground under the robot).
 var total_mass: float = 0.0
 var center_of_mass: Vector3 = Vector3.ZERO
-var power_net: float = 0.0
+## Width of the narrowest support axis (for display).
 var footprint: float = 0.0
+## Ground contact rectangle on the XZ plane, assembly-local.
+var support_min: Vector2 = Vector2(-0.15, -0.15)
+var support_max: Vector2 = Vector2(0.15, 0.15)
+var height: float = 0.0
+var half_width: float = 0.4
+var power_gen: float = 0.0
+var power_draw: float = 0.0
+var cpu_capacity: int = 0
+var cpu_used: int = 0
+var max_hp: float = 0.0
+var pickup_radius: float = 0.0
+var stability: float = 0.0
+var locomotion: LocomotionProfile = LocomotionProfile.new()
+var part_count: int = 0
 
-func _ready() -> void:
+var _cpu_granted: Dictionary = {} # PartInstance -> true
+var _was_browned_out := false
+
+
+## Builds the root part and starting loadout. Called by RobotController so
+## behaviors get a valid robot reference.
+func build(p_robot: RobotController) -> void:
+	robot = p_robot
 	if root == null and root_part_data != null:
 		root = PartInstance.new(root_part_data)
-		root.name = "RootPart"
+		root.name = "Core"
 		add_child(root)
+		_spawn_behaviors(root)
 	recompute()
+	for k in starting_parts.size():
+		var p := starting_parts[k]
+		if p == null:
+			continue
+		var socket_name: StringName = starting_sockets[k] if k < starting_sockets.size() else &""
+		var inst: PartInstance = null
+		if socket_name != &"":
+			inst = attach_by_socket_name(p, socket_name)
+		else:
+			inst = auto_attach(p)
+		if inst == null:
+			push_warning("Starting part %s found no free socket" % p.id)
 
-func attach(part: PartData, parent: PartInstance, socket: StringName) -> PartInstance:
+
+## Attaches to the first part (in tree order) with a free, compatible socket
+## named `socket_name`.
+func attach_by_socket_name(part: PartData, socket_name: StringName, do_recompute: bool = true) -> PartInstance:
+	for inst in get_all_parts():
+		var s := inst.data.get_socket(socket_name)
+		if s != null and inst.is_socket_free(socket_name) and can_fit(part, s):
+			return attach(part, inst, socket_name, do_recompute)
+	return null
+
+
+static func can_fit(part: PartData, socket: SocketDef) -> bool:
+	return part != null and socket != null \
+		and int(part.attach_type) == socket.type \
+		and part.attach_size <= socket.size
+
+
+func attach(part: PartData, parent: PartInstance, socket_name: StringName, do_recompute: bool = true) -> PartInstance:
 	if part == null:
 		return null
 	if parent == null:
 		parent = root
-	if parent == null:
+	if parent == null or parent.data == null:
+		return null
+	var socket := parent.data.get_socket(socket_name)
+	if socket == null or not parent.is_socket_free(socket_name) or not can_fit(part, socket):
 		return null
 
 	var inst := PartInstance.new(part)
-	inst.name = String(part.id) if part.id != StringName() else "Part"
 	parent.attach_child_part(inst, socket)
-	recompute()
-	assembly_changed.emit()
+	_spawn_behaviors(inst)
+	EventBus.part_attached.emit(part.id)
+	if do_recompute:
+		recompute()
 	return inst
+
+
+## Finds a free compatible socket anywhere on the robot. Among candidates it
+## picks the one that keeps the center of mass closest to the middle, so
+## pickups don't wreck balance by accident (build mode will add manual
+## placement). Ties go to the earliest socket in tree order. Returns null if nothing fits.
+func auto_attach(part: PartData, do_recompute: bool = true) -> PartInstance:
+	var best := find_best_socket(part)
+	if best.is_empty():
+		return null
+	return attach(part, best[0], best[1], do_recompute)
+
+
+## Returns [PartInstance, StringName] or [] if no socket fits.
+func find_best_socket(part: PartData) -> Array:
+	if root == null or part == null:
+		return []
+	var best: Array = []
+	var best_score := INF
+	var com_mass := Vector2(center_of_mass.x, center_of_mass.z) * total_mass
+	for entry in _walk_local():
+		var inst: PartInstance = entry[0]
+		var xf: Transform3D = entry[1]
+		for s in inst.get_free_sockets():
+			if not can_fit(part, s):
+				continue
+			var p := xf * (s.get_transform() * part.visual_offset)
+			var new_com := (com_mass + Vector2(p.x, p.z) * part.mass) / maxf(total_mass + part.mass, 0.001)
+			var score := new_com.length()
+			if score < best_score - 0.0001:
+				best_score = score
+				best = [inst, s.marker_name]
+	return best
+
+
+## Removes a part and everything attached to it. Returns the removed PartData
+## (including children) so callers can drop them as loot.
+func detach(inst: PartInstance) -> Array[PartData]:
+	var removed: Array[PartData] = []
+	if inst == null or inst == root or inst.parent_part == null:
+		return removed
+	for p in inst.walk():
+		removed.append(p.data)
+		for b in p.behaviors:
+			b.on_detached()
+		EventBus.part_detached.emit(p.data.id)
+	inst.parent_part.detach_child_part(inst)
+	inst.queue_free()
+	recompute()
+	return removed
+
+
+func get_all_parts() -> Array[PartInstance]:
+	if root == null:
+		return []
+	return root.walk()
+
+
+func get_all_behaviors() -> Array[PartBehavior]:
+	var out: Array[PartBehavior] = []
+	for p in get_all_parts():
+		out.append_array(p.behaviors)
+	return out
+
+
+func has_cpu_for(inst: PartInstance) -> bool:
+	return _cpu_granted.has(inst)
+
+
+func is_browned_out() -> bool:
+	return power_draw > power_gen + 0.001
+
+
+## 1.0 when power is fine, lower when draw exceeds generation.
+func get_power_ratio() -> float:
+	if power_draw <= 0.001:
+		return 1.0
+	return clampf(power_gen / power_draw, 0.0, 1.0)
+
 
 func recompute() -> void:
 	total_mass = 0.0
-	power_net = 0.0
 	center_of_mass = Vector3.ZERO
 	footprint = 0.0
+	height = 0.0
+	half_width = 0.4
+	power_gen = 0.0
+	power_draw = 0.0
+	cpu_capacity = 0
+	cpu_used = 0
+	max_hp = 0.0
+	pickup_radius = 0.0
+	stability = 0.0
+	part_count = 0
+	_cpu_granted.clear()
 
 	if root == null:
+		locomotion = LocomotionProfile.new()
 		assembly_changed.emit()
 		return
 
-	var weighted := Vector3.ZERO
-	var feet: Array[Vector3] = []
+	# Pass 1: lift the robot so its lowest point touches y = 0.
+	root.position = Vector3.ZERO
+	var entries := _walk_local()
+	var bounds := AABB()
+	var first := true
+	for e in entries:
+		var b := _part_bounds(e[0], e[1])
+		if first:
+			bounds = b
+			first = false
+		else:
+			bounds = bounds.merge(b)
+	root.position.y = -bounds.position.y
+	var lift := Vector3(0.0, -bounds.position.y, 0.0)
+	height = bounds.size.y
+	half_width = maxf(maxf(absf(bounds.position.x), absf(bounds.end.x)), maxf(absf(bounds.position.z), absf(bounds.end.z)))
 
-	for p in root.walk():
-		if p.data == null:
-			continue
-		total_mass += p.data.mass
-		weighted += p.global_position * p.data.mass
-		power_net -= p.data.power_draw
-		if p.data.category == PartData.Category.LOCOMOTION:
-			feet.append(p.global_position)
+	# Pass 2: budgets and mass distribution.
+	var weighted := Vector3.ZERO
+	var loco_entries: Array = []
+	var support := AABB()
+	var has_support := false
+	var cpu_users: Array[PartInstance] = []
+	for e in entries:
+		var inst: PartInstance = e[0]
+		var d := inst.data
+		var xf: Transform3D = e[1]
+		var mass_point: Vector3 = xf * d.visual_offset + lift
+		part_count += 1
+		total_mass += d.mass
+		weighted += mass_point * d.mass
+		power_gen += d.power_output
+		power_draw += d.power_draw
+		cpu_capacity += d.cpu_output
+		max_hp += d.hp
+		pickup_radius += d.pickup_radius
+		stability += d.stability
+		if d.cpu_cost > 0:
+			cpu_users.append(inst)
+		if d.category == PartData.Category.LOCOMOTION:
+			loco_entries.append([d, mass_point])
+			var fb := _part_bounds(inst, xf)
+			fb.position += lift
+			if has_support:
+				support = support.merge(fb)
+			else:
+				support = fb
+				has_support = true
 
 	if total_mass > 0.0001:
-		center_of_mass = to_local(weighted / total_mass)
+		center_of_mass = weighted / total_mass
 
-	footprint = _spread(feet)
+	# CPU is granted in attach order; extra weapons fire straight ahead.
+	for inst in cpu_users:
+		if cpu_used + inst.data.cpu_cost <= cpu_capacity:
+			cpu_used += inst.data.cpu_cost
+			_cpu_granted[inst] = true
+
+	if has_support:
+		support_min = Vector2(support.position.x, support.position.z)
+		support_max = Vector2(support.end.x, support.end.z)
+	else:
+		# Core-only: a small rolling contact patch.
+		support_min = Vector2(center_of_mass.x - 0.15, center_of_mass.z - 0.15)
+		support_max = Vector2(center_of_mass.x + 0.15, center_of_mass.z + 0.15)
+	footprint = minf(support_max.x - support_min.x, support_max.y - support_min.y)
+	locomotion = LocomotionProfile.blend(loco_entries, center_of_mass)
+
+	var browned := is_browned_out()
+	if browned and not _was_browned_out:
+		EventBus.robot_brownout.emit()
+		for b in get_all_behaviors():
+			b.on_brownout()
+	_was_browned_out = browned
+
 	assembly_changed.emit()
 
-func _spread(points: Array[Vector3]) -> float:
-	if points.size() < 2:
-		return 0.3
-	var aabb := AABB(points[0], Vector3.ZERO)
-	for p in points:
-		aabb = aabb.expand(p)
-	return Vector2(aabb.size.x, aabb.size.z).length()
+
+# Returns Array of [PartInstance, Transform3D relative to this assembly],
+# computed from local transforms so it works outside the scene tree too.
+func _walk_local() -> Array:
+	var out: Array = []
+	if root != null:
+		_walk_rec(root, root.transform, out)
+	return out
+
+
+func _walk_rec(inst: PartInstance, xf: Transform3D, out: Array) -> void:
+	out.append([inst, xf])
+	for c in inst.get_children():
+		if c is PartInstance:
+			_walk_rec(c, xf * (c as PartInstance).transform, out)
+
+
+func _part_bounds(inst: PartInstance, xf: Transform3D) -> AABB:
+	var d := inst.data
+	var mi := inst.visual.get_node_or_null("Mesh") as MeshInstance3D if inst.visual != null else null
+	if mi != null and mi.mesh != null:
+		return (xf * inst.visual.transform * mi.transform) * mi.mesh.get_aabb()
+	var half := d.visual_size * 0.5
+	return xf * AABB(d.visual_offset - half, d.visual_size)
+
+
+func _spawn_behaviors(inst: PartInstance) -> void:
+	for s in inst.data.behaviors:
+		if s == null:
+			continue
+		var b: Object = s.new()
+		if b is PartBehavior:
+			var pb := b as PartBehavior
+			pb.name = "%s_%s" % [inst.name, s.resource_path.get_file().get_basename()]
+			inst.add_child(pb)
+			inst.behaviors.append(pb)
+			pb.setup(inst, robot)
+		elif b is Node:
+			(b as Node).queue_free()
+
+
+## Horizontal distance from the center of mass to the support edge the robot
+## would tip over when accelerating along `accel_dir` (assembly-local, XZ).
+## Accelerating tips the top backwards, so the edge is on the opposite side.
+func tip_lever(accel_dir: Vector2) -> float:
+	var d := accel_dir.normalized()
+	if d == Vector2.ZERO:
+		return INF
+	var lever_x := (center_of_mass.x - support_min.x) if d.x > 0.0 else (support_max.x - center_of_mass.x)
+	var lever_z := (center_of_mass.z - support_min.y) if d.y > 0.0 else (support_max.y - center_of_mass.z)
+	var lever := absf(d.x) * lever_x + absf(d.y) * lever_z
+	return maxf(lever, 0.02)

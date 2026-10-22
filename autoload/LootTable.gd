@@ -1,10 +1,70 @@
 extends Node
 
-## Minimal loot table interface.
+## Loads every PartData in res://data/parts and rolls weighted drops.
 
-@export var fallback_part_ids: Array[StringName] = ["core_scrapper", "leg_basic", "gun_nail"]
+const PARTS_DIR := "res://data/parts/"
 
-func roll_part_id(rng: RandomNumberGenerator, _context: Dictionary = {}) -> StringName:
-	if fallback_part_ids.is_empty():
-		return &""
-	return fallback_part_ids[rng.randi_range(0, fallback_part_ids.size() - 1)]
+## Used if the parts folder is empty.
+@export var fallback_part_ids: Array[StringName] = [&"loco_biped_leg", &"gun_nail"]
+
+var parts: Array[PartData] = []
+var _by_id: Dictionary = {}
+var _rng := RandomNumberGenerator.new()
+
+
+func _ready() -> void:
+	reload()
+
+
+func reload() -> void:
+	parts.clear()
+	_by_id.clear()
+	var dir := DirAccess.open(PARTS_DIR)
+	if dir == null:
+		push_warning("LootTable: %s not found" % PARTS_DIR)
+		return
+	for f in dir.get_files():
+		# Exported builds list "x.tres.remap"; load() resolves the remap.
+		var file := f.trim_suffix(".remap")
+		if not (file.ends_with(".tres") or file.ends_with(".res")):
+			continue
+		var res := load(PARTS_DIR + file)
+		if res is PartData:
+			parts.append(res)
+			_by_id[res.id] = res
+
+
+func reseed(p_seed: int) -> void:
+	_rng.seed = p_seed ^ 0x5eed
+
+
+func get_part(id: StringName) -> PartData:
+	return _by_id.get(id, null)
+
+
+func roll_part(context: Dictionary = {}) -> PartData:
+	var total := 0.0
+	for p in parts:
+		total += _weight(p, context)
+	if total <= 0.0:
+		return null
+	var r := _rng.randf() * total
+	for p in parts:
+		r -= _weight(p, context)
+		if r <= 0.0:
+			return p
+	return parts.back()
+
+
+## Kept for the original scaffold API.
+func roll_part_id(rng: RandomNumberGenerator, context: Dictionary = {}) -> StringName:
+	if parts.is_empty():
+		if fallback_part_ids.is_empty():
+			return &""
+		return fallback_part_ids[rng.randi_range(0, fallback_part_ids.size() - 1)]
+	var p := roll_part(context)
+	return p.id if p != null else &""
+
+
+func _weight(p: PartData, _context: Dictionary) -> float:
+	return maxf(p.drop_weight, 0.0)

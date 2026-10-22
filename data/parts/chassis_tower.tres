@@ -1,0 +1,103 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_uqmoe"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_ocs35"]
+
+[sub_resource type="Resource" id="Resource_tree0"]
+script = ExtResource("2_ocs35")
+marker_name = &"loco_l"
+type = 3
+size = 2
+position = Vector3(-0.3, -0.4, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_usgmb"]
+script = ExtResource("2_ocs35")
+marker_name = &"loco_r"
+type = 3
+size = 2
+position = Vector3(0.3, -0.4, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_moryu"]
+script = ExtResource("2_ocs35")
+marker_name = &"mount_top"
+type = 1
+size = 2
+position = Vector3(0, 1.4, 0.1)
+rotation_degrees = Vector3(0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_6xsv6"]
+script = ExtResource("2_ocs35")
+marker_name = &"mount_l"
+type = 1
+size = 2
+position = Vector3(-0.4, 1.1, 0)
+rotation_degrees = Vector3(0, 50, 0)
+
+[sub_resource type="Resource" id="Resource_n60s8"]
+script = ExtResource("2_ocs35")
+marker_name = &"mount_r"
+type = 1
+size = 2
+position = Vector3(0.4, 1.1, 0)
+rotation_degrees = Vector3(0, -50, 0)
+
+[sub_resource type="Resource" id="Resource_skda8"]
+script = ExtResource("2_ocs35")
+marker_name = &"internal_a"
+type = 2
+size = 1
+position = Vector3(0, 0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_4mwns"]
+script = ExtResource("2_ocs35")
+marker_name = &"internal_b"
+type = 2
+size = 1
+position = Vector3(0, 0.8, 0)
+rotation_degrees = Vector3(0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_sr2pq"]
+script = ExtResource("2_ocs35")
+marker_name = &"head"
+type = 0
+size = 1
+position = Vector3(0, 1.4, -0.2)
+rotation_degrees = Vector3(0, 0, 0)
+
+[resource]
+script = ExtResource("1_uqmoe")
+id = &"chassis_tower"
+display_name = "Tower Chassis"
+category = 1
+mass = 4.0
+power_draw = 0.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 50.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+top_speed = 0.0
+thrust = 0.0
+grip = 1.0
+jump_force = 0.0
+mass_capacity = 0.0
+turn_rate_deg = 540.0
+attach_type = 0
+attach_size = 2
+sockets = Array[ExtResource("2_ocs35")]([SubResource("Resource_tree0"), SubResource("Resource_usgmb"), SubResource("Resource_moryu"), SubResource("Resource_6xsv6"), SubResource("Resource_n60s8"), SubResource("Resource_skda8"), SubResource("Resource_4mwns"), SubResource("Resource_sr2pq")])
+component_slots = 1
+behaviors = Array[Script]([])
+params = {}
+tags = PackedStringArray()
+drop_weight = 0.0
+scrap_value = 5
+visual_shape = 0
+visual_size = Vector3(0.7, 1.8, 0.7)
+visual_offset = Vector3(0, 0.5, 0)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.5, 0.48, 0.55, 1)
