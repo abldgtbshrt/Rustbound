@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_6ssf1"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_3tlqa"]
+
+[resource]
+script = ExtResource("1_6ssf1")
+id = &"armor_plate"
+display_name = "Armor Plate"
+category = 3
+mass = 2.0
+power_draw = 0.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 40.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+top_speed = 0.0
+thrust = 0.0
+grip = 1.0
+jump_force = 0.0
+mass_capacity = 0.0
+turn_rate_deg = 540.0
+attach_type = 1
+attach_size = 1
+sockets = Array[ExtResource("2_3tlqa")]([])
+component_slots = 1
+behaviors = Array[Script]([])
+params = {}
+tags = PackedStringArray()
+drop_weight = 0.8
+scrap_value = 5
+visual_shape = 0
+visual_size = Vector3(0.6, 0.6, 0.1)
+visual_offset = Vector3(0, 0.1, 0)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.5, 0.5, 0.42, 1)

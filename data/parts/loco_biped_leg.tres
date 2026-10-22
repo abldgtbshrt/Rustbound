@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_j860b"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_7h2c5"]
+
+[sub_resource type="Resource" id="Resource_haufy"]
+script = ExtResource("2_7h2c5")
+marker_name = &"mount_shin"
+type = 1
+size = 1
+position = Vector3(0, -0.35, -0.25)
+rotation_degrees = Vector3(0, 0, 0)
+
+[resource]
+script = ExtResource("1_j860b")
+id = &"loco_biped_leg"
+display_name = "Biped Leg"
+category = 2
+mass = 1.5
+power_draw = 0.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 15.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+top_speed = 7.0
+thrust = 32.0
+grip = 0.85
+jump_force = 7.5
+mass_capacity = 6.0
+turn_rate_deg = 540.0
+attach_type = 3
+attach_size = 1
+sockets = Array[ExtResource("2_7h2c5")]([SubResource("Resource_haufy")])
+component_slots = 1
+behaviors = Array[Script]([])
+params = {}
+tags = PackedStringArray()
+drop_weight = 1.0
+scrap_value = 5
+visual_shape = 0
+visual_size = Vector3(0.25, 0.8, 0.45)
+visual_offset = Vector3(0, -0.4, 0)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.4, 0.45, 0.5, 1)
