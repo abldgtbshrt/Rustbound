@@ -268,6 +268,40 @@ func _test_heat() -> void:
 	for f in 60:
 		await get_tree().physics_frame
 	check(gun.shots_fired > shots0 and robot.heat > 0.0, "shots generate heat (%.1f after %d shots)" % [robot.heat, gun.shots_fired - shots0])
+
+	# Airflow: moving cools faster than standing still.
+	robot.base_heat_dissipation = 2.0
+	robot.velocity = Vector3.ZERO
+	var still := robot.get_heat_dissipation()
+	robot.velocity = Vector3(7, 0, 0)
+	var moving := robot.get_heat_dissipation()
+	robot.velocity = Vector3.ZERO
+	check(moving > still + 5.0, "moving at 7 m/s adds airflow cooling (%.1f -> %.1f /s)" % [still, moving])
+
+	# Vent: dumps heat, damages nearby enemies only, then cools down.
+	rs.enemies.clear_all()
+	for f in 2:
+		await get_tree().physics_frame
+	var at := robot.global_position
+	for off in [Vector3(1.5, 0, 0), Vector3(-1.5, 0, 0.5), Vector3(0, 0, 2.0), Vector3(15, 0, 0)]:
+		rs.enemies.spawn(2, at + off) # brutes: 70 hp, survive the blast
+	for f in 1:
+		await get_tree().physics_frame
+	robot.heat = 5.0
+	check(robot.vent() == -1, "can't vent with almost no heat")
+	robot.heat = 80.0
+	var hits := robot.vent()
+	check(hits == 3, "vent hits the 3 close enemies, not the far one (hit %d)" % hits)
+	check(robot.heat == 0.0 and not robot.is_overheated, "vent dumps all heat")
+	var hurt := 0
+	for i in rs.enemies.count:
+		if rs.enemies.hp[i] < 70.0:
+			hurt += 1
+	check(hurt == 3, "blast damaged them (%d hurt)" % hurt)
+	robot.heat = 80.0
+	check(robot.vent() == -1, "vent is on cooldown")
+	robot.vent_cooldown_left = 0.0
+	check(robot.vent() >= 0, "vent ready again after cooldown")
 	scene.queue_free()
 	await get_tree().process_frame
 

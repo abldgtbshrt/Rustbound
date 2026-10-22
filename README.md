@@ -15,7 +15,7 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 - **Level-ups**: scrap fills the XP bar. Each level pauses and offers 3 parts (keys 1-3), or skip to repair 30% (R).
 - **The bench**: new parts auto-install on the most balanced free socket (toggle in build mode); otherwise they go to an 8-slot bench, and overflow is scrapped.
 - **Build mode** (Tab): the world drops to 10% speed and the camera moves in. Free sockets show as colored dots (gray structural, orange mount, cyan internal, green locomotion); pick a bench part and the sockets it fits grow. Click to attach. Click a part on the robot to detach it (and everything on it) to the bench, or scrap it. The pink dot and green box show center of mass and footprint as you build.
-- **Heat**: weapons add heat per shot, reactors add it passively, heat sinks raise capacity and cooling. Over capacity you overheat and take damage until you cool to 80%.
+- **Heat**: weapons add heat per shot, reactors add it passively, heat sinks raise capacity and cooling. Cooling scales with speed (airflow), so kiting cools you and camping bakes you. **Shift vents** all heat as a scalding blast: radius and damage grow with the heat dumped, 6 s cooldown. Over capacity you overheat and take light damage (3 HP/s) until you cool to 80%.
 - **Budget HUD**: power, heat, CPU, mass and tilt bars turn red when you're over. F3 shows the detailed physics readout.
 - **PS2 look**: the 3D view renders at ~360 lines and is upscaled with nearest-neighbor, ordered dithering and 15-bit color, while the UI stays sharp. F4 toggles it.
 
@@ -25,6 +25,7 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 |---|---|
 | WASD / arrows | Move (camera-relative) |
 | Space | Jump (legs only) |
+| Shift | Vent heat (blast around you) |
 | Tab | Build mode (10% time) |
 | Left click | Build mode: attach / select |
 | 1 / 2 / 3, R | Level-up: pick a part / repair |
@@ -46,7 +47,7 @@ Weapons fire on their own.
 godot --headless --fixed-fps 60 res://tests/run_tests.tscn
 ```
 
-72 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), and a 600-enemy benchmark. Exit code is non-zero on failure.
+79 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), and a 600-enemy benchmark. Exit code is non-zero on failure.
 
 ## Content
 

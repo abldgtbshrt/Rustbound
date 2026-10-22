@@ -16,6 +16,9 @@ signal robot_brownout
 signal robot_overheat
 @warning_ignore("unused_signal")
 signal robot_cooled
+## amount = heat dumped, hits = enemies caught in the blast.
+@warning_ignore("unused_signal")
+signal robot_vented(amount: float, hits: int)
 @warning_ignore("unused_signal")
 signal robot_damaged(amount: float)
 @warning_ignore("unused_signal")

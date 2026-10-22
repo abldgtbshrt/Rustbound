@@ -28,7 +28,8 @@ func _ready() -> void:
 	EventBus.message.connect(_push)
 	EventBus.robot_knocked_down.connect(func() -> void: _push("KNOCKED DOWN: too top-heavy for that move"))
 	EventBus.robot_brownout.connect(func() -> void: _push("BROWNOUT: power draw exceeds generation"))
-	EventBus.robot_overheat.connect(func() -> void: _push("OVERHEAT: taking damage until you cool down"))
+	EventBus.robot_overheat.connect(func() -> void: _push("OVERHEAT: keep moving to cool, or vent with Shift"))
+	EventBus.robot_vented.connect(func(amount: float, hits: int) -> void: _push("VENTED %d heat, scalded %d" % [int(amount), hits]))
 	RunState.run_ended.connect(_on_run_ended)
 	RunState.leveled_up.connect(func(l: int) -> void: _push("Level %d!" % l))
 
@@ -83,7 +84,7 @@ func _build_ui() -> void:
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 8)
 	panel.add_child(grid)
-	for spec in [["POWER", UiStyle.C_POWER], ["HEAT", UiStyle.C_HEAT], ["CPU", UiStyle.C_CPU], ["MASS", UiStyle.C_MASS], ["TILT", UiStyle.C_TILT]]:
+	for spec in [["POWER", UiStyle.C_POWER], ["HEAT", UiStyle.C_HEAT], ["VENT", UiStyle.C_XP], ["CPU", UiStyle.C_CPU], ["MASS", UiStyle.C_MASS], ["TILT", UiStyle.C_TILT]]:
 		grid.add_child(UiStyle.label(spec[0], 13, spec[1]))
 		var b := UiStyle.bar(spec[1], Vector2(150, 10))
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -168,6 +169,16 @@ func _process(delta: float) -> void:
 	_set_row("POWER", power_frac, "%.0f / %.0f" % [a.power_draw, a.power_gen], a.is_browned_out())
 	var cap := robot.get_heat_capacity()
 	_set_row("HEAT", robot.heat / cap, "%.0f / %.0f%s" % [robot.heat, cap, " HOT" if robot.is_overheated else ""], robot.is_overheated)
+	var vent_text := "Shift"
+	var vent_frac := 1.0
+	if robot.vent_cooldown_left > 0.0:
+		vent_frac = 1.0 - robot.vent_cooldown_left / maxf(robot.vent_cooldown, 0.01)
+		vent_text = "%.1fs" % robot.vent_cooldown_left
+	elif robot.heat < robot.vent_min_heat:
+		vent_text = "need heat"
+	else:
+		vent_text = "Shift: r%.0fm" % robot.get_vent_radius(robot.heat)
+	_set_row("VENT", vent_frac, vent_text, false)
 	var pips := ""
 	for i in maxi(a.cpu_capacity, 0):
 		pips += "#" if i < a.cpu_used else "."
@@ -190,7 +201,7 @@ func _process(delta: float) -> void:
 		_debug.text = "\n".join([
 			"parts %d   locomotion %s   speed %.1f m/s   grip %.2f   jump %s" % [a.part_count, loco, robot.get_top_speed(), prof.grip, ("%.1f" % prof.jump_force) if prof.can_jump else "no"],
 			"CoM h %.2f side %+.2f   footprint %.2f   height %.2f   gyro +%d%%" % [a.center_of_mass.y, a.center_of_mass.x, a.footprint, a.height, int(a.stability * 100.0)],
-			"heat +%.1f/s passive, -%.1f/s cooling   FPS %d" % [a.heat_passive, robot.get_heat_dissipation(), Engine.get_frames_per_second()],
+			"heat +%.1f/s passive, -%.1f/s cooling (incl. airflow)   FPS %d" % [a.heat_passive, robot.get_heat_dissipation(), Engine.get_frames_per_second()],
 		])
 
 	var lines: Array[String] = []

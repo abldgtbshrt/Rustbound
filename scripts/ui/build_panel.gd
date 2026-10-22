@@ -37,7 +37,7 @@ func _build_ui() -> void:
 	_panel.offset_left = -300
 	_panel.offset_right = -14
 	_panel.offset_top = 70
-	_panel.offset_bottom = -160
+	_panel.offset_bottom = -185
 	add_child(_panel)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 6)
