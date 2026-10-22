@@ -156,7 +156,7 @@ func _parts() -> Array[PartData]:
 	nail.drop_weight = 1.2
 	nail.behaviors = [load(NAILGUN)]
 	nail.params = {"fire_rate": 4.0, "damage": 9.0, "range": 16.0, "speed": 32.0, "arc_deg": 200.0,
-		"spread_deg": 3.0, "recoil": 0.6, "pierce": 0, "knockback": 1.5, "muzzle": 0.55}
+		"spread_deg": 3.0, "recoil": 0.6, "pierce": 0, "knockback": 1.5, "muzzle": 0.55, "heat_per_shot": 1.5}
 	_vis(nail, PartData.VisualShape.BOX, Vector3(0.18, 0.18, 0.6), Vector3(0, 0.12, -0.2), Color(0.45, 0.55, 0.65))
 	out.append(nail)
 
@@ -168,7 +168,7 @@ func _parts() -> Array[PartData]:
 	rivet.drop_weight = 0.5
 	rivet.behaviors = [load(NAILGUN)]
 	rivet.params = {"fire_rate": 1.2, "damage": 40.0, "range": 20.0, "speed": 26.0, "arc_deg": 120.0,
-		"spread_deg": 0.5, "recoil": 9.0, "pierce": 3, "knockback": 6.0, "muzzle": 0.8}
+		"spread_deg": 0.5, "recoil": 9.0, "pierce": 3, "knockback": 6.0, "muzzle": 0.8, "heat_per_shot": 9.0}
 	_vis(rivet, PartData.VisualShape.BOX, Vector3(0.3, 0.3, 0.9), Vector3(0, 0.18, -0.3), Color(0.6, 0.35, 0.25))
 	out.append(rivet)
 
@@ -184,10 +184,18 @@ func _parts() -> Array[PartData]:
 	var reactor := _part("mod_reactor", "Reactor", PartData.Category.MODULE, INTERNAL, 1)
 	reactor.mass = 1.8
 	reactor.power_output = 8.0
-	reactor.heat_per_sec = 1.0
+	reactor.heat_per_sec = 2.0
 	reactor.drop_weight = 0.8
 	_vis(reactor, PartData.VisualShape.CYLINDER, Vector3(0.35, 0.4, 0.35), Vector3.ZERO, Color(0.4, 0.9, 0.4))
 	out.append(reactor)
+
+	var sink := _part("mod_heat_sink", "Heat Sink", PartData.Category.MODULE, INTERNAL, 1)
+	sink.mass = 1.0
+	sink.heat_capacity = 40.0
+	sink.heat_dissipation = 6.0
+	sink.drop_weight = 0.8
+	_vis(sink, PartData.VisualShape.BOX, Vector3(0.4, 0.3, 0.3), Vector3.ZERO, Color(0.75, 0.75, 0.8))
+	out.append(sink)
 
 	var armor := _part("armor_plate", "Armor Plate", PartData.Category.MOUNT, MOUNT, 1)
 	armor.mass = 2.0

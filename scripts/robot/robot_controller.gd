@@ -17,6 +17,29 @@ extends CharacterBody3D
 @export var base_pickup_radius: float = 2.5
 @export var base_hp: float = 50.0
 
+@export_group("Heat")
+@export var base_heat_capacity: float = 100.0
+## Cooling while standing still. Moving adds airflow cooling on top.
+@export var base_heat_dissipation: float = 2.0
+## Extra cooling per m/s of horizontal speed: kiting cools, camping bakes.
+@export var airflow_cooling_per_mps: float = 1.2
+@export var overheat_dps: float = 3.0
+## Overheat clears once heat drops below this fraction of capacity.
+@export var overheat_recover_frac: float = 0.8
+
+@export_group("Vent")
+## Shift dumps all heat as a scalding blast around the robot.
+@export var vent_cooldown: float = 6.0
+## Minimum heat needed to vent (prevents spamming it as a free attack).
+@export var vent_min_heat: float = 15.0
+@export var vent_base_radius: float = 3.0
+## Extra blast radius per point of heat dumped.
+@export var vent_radius_per_heat: float = 0.035
+@export var vent_max_radius: float = 8.0
+## Damage per point of heat dumped (falls off to 50% at the edge).
+@export var vent_damage_per_heat: float = 0.6
+@export var vent_knockback: float = 9.0
+
 @onready var assembly: RobotAssembly = $RobotAssembly
 @onready var collision: CollisionShape3D = $CollisionShape3D
 
@@ -30,6 +53,11 @@ var alive: bool = true
 ## Current tip ratio (1.0 = at the edge of falling over). Read by the HUD.
 var tip_ratio: float = 0.0
 var is_knocked_down: bool = false
+
+var heat: float = 0.0
+var is_overheated: bool = false
+## Seconds until the vent is ready again.
+var vent_cooldown_left: float = 0.0
 
 var _accel_smoothed := Vector3.ZERO
 var _tip_timer := 0.0
@@ -131,11 +159,88 @@ func _physics_process(delta: float) -> void:
 			b.on_land()
 	_was_on_floor = on_floor
 
+	_update_heat(delta)
 	_update_tipping(delta, (hvel - start_hvel) / maxf(delta, 0.0001))
 
 	if alive:
 		for b in assembly.get_all_behaviors():
 			b.on_tick(delta)
+
+
+func get_heat_capacity() -> float:
+	return base_heat_capacity + assembly.heat_capacity
+
+
+## Current cooling per second, including airflow from moving.
+func get_heat_dissipation() -> float:
+	var speed := Vector2(velocity.x, velocity.z).length()
+	return base_heat_dissipation + assembly.heat_dissipation + airflow_cooling_per_mps * speed
+
+
+func add_heat(amount: float) -> void:
+	heat = maxf(heat + amount, 0.0)
+
+
+func can_vent() -> bool:
+	return alive and vent_cooldown_left <= 0.0 and heat >= vent_min_heat
+
+
+func get_vent_radius(amount: float) -> float:
+	return minf(vent_base_radius + amount * vent_radius_per_heat, vent_max_radius)
+
+
+## Dumps all heat as a blast that damages and shoves nearby enemies.
+## Returns the number of enemies hit, or -1 if the vent wasn't ready.
+func vent() -> int:
+	if not can_vent():
+		return -1
+	var amount := heat
+	heat = 0.0
+	if is_overheated:
+		is_overheated = false
+		EventBus.robot_cooled.emit()
+	vent_cooldown_left = vent_cooldown
+
+	var radius := get_vent_radius(amount)
+	var hits := 0
+	var enemies := RunState.enemies
+	if enemies != null:
+		var origin := global_position
+		for i in enemies.query_radius(origin, radius + 1.0):
+			var to := enemies.pos[i] - origin
+			to.y = 0.0
+			var d := to.length()
+			var reach := radius + enemies.get_radius(i)
+			if d > reach:
+				continue
+			var falloff := lerpf(1.0, 0.5, clampf(d / reach, 0.0, 1.0))
+			var push := (to / maxf(d, 0.01)) * vent_knockback
+			enemies.damage(i, amount * vent_damage_per_heat * falloff, push)
+			hits += 1
+	VentEffect.spawn(get_parent(), global_position, radius)
+	EventBus.robot_vented.emit(amount, hits)
+	return hits
+
+
+func _update_heat(delta: float) -> void:
+	vent_cooldown_left = maxf(vent_cooldown_left - delta, 0.0)
+	if alive and Input.is_action_just_pressed("vent") and vent() < 0:
+		if vent_cooldown_left > 0.0:
+			EventBus.message.emit("Vent recharging (%.1fs)" % vent_cooldown_left)
+		else:
+			EventBus.message.emit("Not hot enough to vent")
+
+	var cap := get_heat_capacity()
+	heat += (assembly.heat_passive - get_heat_dissipation()) * delta
+	heat = clampf(heat, 0.0, cap * 1.5)
+	if not is_overheated and heat > cap:
+		is_overheated = true
+		EventBus.robot_overheat.emit()
+	elif is_overheated and heat < cap * overheat_recover_frac:
+		is_overheated = false
+		EventBus.robot_cooled.emit()
+	if is_overheated and alive:
+		take_damage(overheat_dps * delta)
 
 
 ## Ratio of tipping torque to restoring torque. Static so it can be tested.

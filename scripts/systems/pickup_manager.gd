@@ -3,6 +3,7 @@ extends Node3D
 
 ## Scrap gems (many, MultiMesh, magnet-pulled) and part pickups (few, real
 ## nodes you have to walk over, so you can choose to skip a part).
+## Parts go through RunState.acquire_part: auto-install, else bench, else scrap.
 
 @export var max_scrap: int = 1000
 @export var collect_radius: float = 0.8
@@ -132,6 +133,7 @@ func _update_scrap(delta: float, robot: RobotController) -> void:
 		var d2 := to.length_squared()
 		if d2 <= collect2:
 			RunState.add_scrap(scrap_value[i])
+			RunState.add_xp(scrap_value[i])
 			EventBus.scrap_collected.emit(scrap_value[i])
 			scrap_count -= 1
 			scrap_pos[i] = scrap_pos[scrap_count]
@@ -165,15 +167,9 @@ func _update_parts(delta: float, robot: RobotController) -> void:
 		k -= 1
 
 
-func _collect_part(data: PartData, robot: RobotController) -> void:
-	var inst := robot.assembly.auto_attach(data)
-	if inst != null:
-		EventBus.part_picked_up.emit(data, true)
-		EventBus.message.emit("Attached %s" % data.get_display_name())
-	else:
-		RunState.add_scrap(data.scrap_value)
-		EventBus.part_picked_up.emit(data, false)
-		EventBus.message.emit("No socket for %s: salvaged +%d scrap" % [data.get_display_name(), data.scrap_value])
+func _collect_part(data: PartData, _robot: RobotController) -> void:
+	var result := RunState.acquire_part(data)
+	EventBus.part_picked_up.emit(data, result == RunState.Acquired.ATTACHED)
 
 
 func _update_multimesh() -> void:

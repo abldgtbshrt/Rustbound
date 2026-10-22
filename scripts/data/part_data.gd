@@ -34,6 +34,7 @@ enum VisualShape {
 @export_group("Budgets")
 @export var mass: float = 1.0
 @export var power_draw: float = 0.0
+## Passive heat generated while attached. Weapons add heat per shot via params.
 @export var heat_per_sec: float = 0.0
 @export var cpu_cost: int = 0
 
@@ -44,6 +45,10 @@ enum VisualShape {
 @export var pickup_radius: float = 0.0
 ## Added to the robot's tip resistance (gyros). 0.5 = 50% harder to tip.
 @export var stability: float = 0.0
+## Extra heat the robot can hold before overheating.
+@export var heat_capacity: float = 0.0
+## Extra heat shed per second.
+@export var heat_dissipation: float = 0.0
 
 @export_group("Locomotion")
 @export var top_speed: float = 0.0

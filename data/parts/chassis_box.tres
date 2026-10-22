@@ -1,82 +1,82 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=13 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_txhrh"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_lxrhv"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_1tg1v"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_gbiiu"]
 
-[sub_resource type="Resource" id="Resource_n75gc"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_mat35"]
+script = ExtResource("2_gbiiu")
 marker_name = &"loco_l"
 type = 3
 size = 2
 position = Vector3(-0.45, -0.35, 0)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_m88l6"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_12iph"]
+script = ExtResource("2_gbiiu")
 marker_name = &"loco_r"
 type = 3
 size = 2
 position = Vector3(0.45, -0.35, 0)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_e6rd7"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_ypd4l"]
+script = ExtResource("2_gbiiu")
 marker_name = &"loco_front"
 type = 3
 size = 2
 position = Vector3(0, -0.35, -0.4)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_mck12"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_ybrg8"]
+script = ExtResource("2_gbiiu")
 marker_name = &"loco_back"
 type = 3
 size = 2
 position = Vector3(0, -0.35, 0.4)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_vm2vl"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_krwdy"]
+script = ExtResource("2_gbiiu")
 marker_name = &"mount_top"
 type = 1
 size = 2
 position = Vector3(0, 0.35, 0.15)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_ijsmp"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_qdbnk"]
+script = ExtResource("2_gbiiu")
 marker_name = &"mount_l"
 type = 1
 size = 2
 position = Vector3(-0.6, 0.1, 0)
 rotation_degrees = Vector3(0, 50, 0)
 
-[sub_resource type="Resource" id="Resource_lelr8"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_ejed6"]
+script = ExtResource("2_gbiiu")
 marker_name = &"mount_r"
 type = 1
 size = 2
 position = Vector3(0.6, 0.1, 0)
 rotation_degrees = Vector3(0, -50, 0)
 
-[sub_resource type="Resource" id="Resource_walux"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_e68aa"]
+script = ExtResource("2_gbiiu")
 marker_name = &"internal_a"
 type = 2
 size = 1
 position = Vector3(0, 0, 0.25)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_s5wc7"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_j6gvo"]
+script = ExtResource("2_gbiiu")
 marker_name = &"internal_b"
 type = 2
 size = 1
 position = Vector3(0, 0, -0.25)
 rotation_degrees = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_whl2t"]
-script = ExtResource("2_lxrhv")
+[sub_resource type="Resource" id="Resource_x6mxg"]
+script = ExtResource("2_gbiiu")
 marker_name = &"head"
 type = 0
 size = 1
@@ -84,7 +84,7 @@ position = Vector3(0, 0.35, -0.3)
 rotation_degrees = Vector3(0, 0, 0)
 
 [resource]
-script = ExtResource("1_txhrh")
+script = ExtResource("1_1tg1v")
 id = &"chassis_box"
 display_name = "Box Chassis"
 category = 1
@@ -97,6 +97,8 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -105,7 +107,7 @@ mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 0
 attach_size = 2
-sockets = Array[ExtResource("2_lxrhv")]([SubResource("Resource_n75gc"), SubResource("Resource_m88l6"), SubResource("Resource_e6rd7"), SubResource("Resource_mck12"), SubResource("Resource_vm2vl"), SubResource("Resource_ijsmp"), SubResource("Resource_lelr8"), SubResource("Resource_walux"), SubResource("Resource_s5wc7"), SubResource("Resource_whl2t")])
+sockets = Array[ExtResource("2_gbiiu")]([SubResource("Resource_mat35"), SubResource("Resource_12iph"), SubResource("Resource_ypd4l"), SubResource("Resource_ybrg8"), SubResource("Resource_krwdy"), SubResource("Resource_qdbnk"), SubResource("Resource_ejed6"), SubResource("Resource_e68aa"), SubResource("Resource_j6gvo"), SubResource("Resource_x6mxg")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
