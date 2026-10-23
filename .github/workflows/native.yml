@@ -1,0 +1,95 @@
+# Builds the native horde library (native/) for every platform and runs the
+# test suite against both horde backends.
+#
+# - Pull requests / pushes touching native/: build + test, binaries uploaded
+#   as artifacts.
+# - Manual run (Actions > native > Run workflow): same, then commits the
+#   rebuilt binaries in bin/ back to the branch, so teammates just pull.
+name: native
+
+on:
+  pull_request:
+    paths: ["native/**", "bin/**", "scripts/systems/**", "tests/**", ".github/workflows/native.yml"]
+  push:
+    branches: [main]
+    paths: ["native/**", "bin/**", "scripts/systems/**", "tests/**", ".github/workflows/native.yml"]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04 # older glibc = runs on more distros
+            platform: linux
+          - os: windows-2022
+            platform: windows
+          - os: macos-14
+            platform: macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Configure
+        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build native/build --config Release --parallel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.platform }}
+          path: bin/${{ matrix.platform }}/
+
+  test:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: bin-linux
+          path: bin/linux/
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+      - name: Import project
+        run: timeout 300 ./godot --headless --editor --quit || true
+      - name: Tests (native horde)
+        run: RUSTBOUND_HORDE_BACKEND=native timeout 900 ./godot --headless res://tests/run_tests.tscn
+      - name: Tests (GDScript horde)
+        run: RUSTBOUND_HORDE_BACKEND=gdscript timeout 900 ./godot --headless res://tests/run_tests.tscn
+      - name: Benchmark
+        run: BENCH_SIZES=600,1500 timeout 600 ./godot --headless res://tests/bench_horde.tscn | grep -E "^(backend|native|gdscript)"
+
+  commit-binaries:
+    if: github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          path: artifacts/
+      - name: Copy into bin/
+        run: |
+          for p in linux windows macos; do
+            mkdir -p bin/$p && cp -r artifacts/bin-$p/. bin/$p/
+          done
+          git status --short bin/
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bin/
+          git diff --cached --quiet && echo "binaries unchanged" && exit 0
+          git commit -m "Rebuild native horde binaries"
+          git push

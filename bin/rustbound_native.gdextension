@@ -1,0 +1,11 @@
+[configuration]
+
+entry_symbol = "rustbound_native_init"
+compatibility_minimum = "4.3"
+reloadable = false
+
+[libraries]
+
+windows.x86_64 = "res://bin/windows/rustbound_native.windows.x86_64.dll"
+linux.x86_64 = "res://bin/linux/rustbound_native.linux.x86_64.so"
+macos = "res://bin/macos/rustbound_native.macos.dylib"

@@ -62,10 +62,10 @@ func on_tick(delta: float) -> void:
 	var cos_half := cos(deg_to_rad(float(param("shield_arc_deg", 120.0)) * 0.5))
 	var push := float(param("push", 5.0))
 	for i in enemies.query_radius(origin, r + 0.6):
-		var to := enemies.pos[i] - origin
+		var to := enemies.get_pos(i) - origin
 		to.y = 0.0
 		var d := to.length()
 		if d < 0.01 or fwd.dot(to / d) < cos_half:
 			continue
 		if d < r + enemies.get_radius(i):
-			enemies.pos[i] += (to / d) * push * delta
+			enemies.set_pos(i, enemies.get_pos(i) + (to / d) * push * delta)

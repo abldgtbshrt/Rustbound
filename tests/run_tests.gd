@@ -17,6 +17,8 @@ func _ready() -> void:
 
 func _run() -> void:
 	rs = get_node("/root/RunState")
+	print("horde backend: %s (set RUSTBOUND_HORDE_BACKEND=gdscript|native to force)" % EnemyManager.create_backend().backend_name())
+	_test_horde_backends()
 	_test_assembly_math()
 	_test_socket_rules()
 	_test_tip_ratio()
@@ -290,7 +292,7 @@ func _test_heat() -> void:
 	# Firing adds heat.
 	robot.heat = 0.0
 	rs.enemies.spawn(0, robot.global_position + Vector3(0, 0, -6))
-	rs.enemies.hp[0] = 1.0e6
+	rs.enemies.set_hp(0, 1.0e6)
 	var gun: NailgunBehavior = null
 	for b in robot.assembly.get_all_behaviors():
 		if b is NailgunBehavior and gun == null:
@@ -329,7 +331,7 @@ func _test_heat() -> void:
 	check(robot.heat == 0.0 and not robot.is_overheated, "vent dumps all heat")
 	var hurt := 0
 	for i in rs.enemies.count:
-		if rs.enemies.hp[i] < 70.0:
+		if rs.enemies.get_hp(i) < 70.0:
 			hurt += 1
 	check(hurt == 3, "blast damaged them (%d hurt)" % hurt)
 	robot.heat = 80.0
@@ -558,7 +560,7 @@ func _test_utility_parts() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	var hits := robot.stomp(8.0)
-	check(hits == 1 and em.hp[0] < 70.0, "stomp damages nearby enemies (%.0f hp left)" % em.hp[0])
+	check(hits == 1 and em.get_hp(0) < 70.0, "stomp damages nearby enemies (%.0f hp left)" % em.get_hp(0))
 	var stomped := [0]
 	var cb := func(_d: float, _h: int) -> void: stomped[0] += 1
 	EventBus.robot_stomped.connect(cb)
@@ -578,9 +580,9 @@ func _test_utility_parts() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	robot.velocity = Vector3(9, 0, 0)
-	var hp0 := em.hp[i]
+	var hp0 := em.get_hp(i)
 	robot.handle_enemy_contact(em, i, Vector3(0.9, 0, 0), 1.0 / 60.0)
-	check(hp0 - em.hp[i] > 15.0, "ramming at speed hits hard (%.0f dmg)" % (hp0 - em.hp[i]))
+	check(hp0 - em.get_hp(i) > 15.0, "ramming at speed hits hard (%.0f dmg)" % (hp0 - em.get_hp(i)))
 	robot.velocity = Vector3.ZERO
 
 	# Crush with treads: small enemies get ground up and don't bite.
@@ -590,9 +592,9 @@ func _test_utility_parts() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	robot.hp = 100.0
-	hp0 = em.hp[i]
+	hp0 = em.get_hp(i)
 	robot.handle_enemy_contact(em, i, Vector3(0.6, 0, 0), 0.1)
-	check(em.hp[i] < hp0 and robot.hp == 100.0, "treads crush small enemies without taking contact damage")
+	check(em.get_hp(i) < hp0 and robot.hp == 100.0, "treads crush small enemies without taking contact damage")
 	_swap_locomotion(robot, "loco_biped_leg")
 
 	# Gyro recovery pulse.
@@ -601,14 +603,14 @@ func _test_utility_parts() -> void:
 	i = em.spawn(2, robot.global_position + Vector3(2.0, 0, 0))
 	await get_tree().physics_frame
 	await get_tree().physics_frame
-	hp0 = em.hp[i]
+	hp0 = em.get_hp(i)
 	robot._fall_over(Vector3.RIGHT)
 	var t0 := 0
 	while robot.is_knocked_down and t0 < 200:
 		await get_tree().physics_frame
 		t0 += 1
 	check(t0 < 60, "gyro gets the robot up fast (%d frames)" % t0)
-	check(em.count > 0 and em.hp[0] < hp0, "recovery shockwave hits nearby enemies")
+	check(em.count > 0 and em.get_hp(0) < hp0, "recovery shockwave hits nearby enemies")
 
 	# Rotator spins its guns.
 	em.clear_all()
@@ -634,8 +636,8 @@ func _test_utility_parts() -> void:
 	for f in 3:
 		await get_tree().physics_frame
 	var bh: ChainSwordBehavior = sword.behaviors[0]
-	check(bh.swings >= 1 and em.hp[front] < 70.0, "chain sword hits the enemy in front (%.0f hp)" % em.hp[front])
-	check(is_equal_approx(em.hp[back], 70.0), "and not the one behind it")
+	check(bh.swings >= 1 and em.get_hp(front) < 70.0, "chain sword hits the enemy in front (%.0f hp)" % em.get_hp(front))
+	check(is_equal_approx(em.get_hp(back), 70.0), "and not the one behind it")
 	scene.queue_free()
 	await get_tree().process_frame
 
@@ -952,7 +954,7 @@ func _test_signature_parts() -> void:
 	await get_tree().physics_frame
 	var hurt := 0
 	for i in em.count:
-		hurt += 1 if em.hp[i] < 70.0 else 0
+		hurt += 1 if em.get_hp(i) < 70.0 else 0
 	check(hurt >= 3, "tesla arcs through %d enemies" % hurt)
 	robot.assembly.detach(tesla)
 	em.clear_all()
@@ -984,7 +986,7 @@ func _test_signature_parts() -> void:
 		await get_tree().physics_frame
 	hurt = 0
 	for i in em.count:
-		hurt += 1 if em.hp[i] < 70.0 else 0
+		hurt += 1 if em.get_hp(i) < 70.0 else 0
 	check(mb.shots >= 1 and hurt >= 2, "mortar shell hits a cluster (%d hurt)" % hurt)
 	robot.assembly.detach(mortar)
 	em.clear_all()
@@ -995,10 +997,10 @@ func _test_signature_parts() -> void:
 	var i := em.spawn(1, mag.global_position + mf * 7.0) # dart, small
 	await get_tree().physics_frame
 	em.enemy_types[1].speed = 0.0 # isolate the pull
-	var d0 := em.pos[i].distance_to(mag.global_position)
+	var d0 := em.get_pos(i).distance_to(mag.global_position)
 	for f in 30:
 		await get_tree().physics_frame
-	check(em.pos[i].distance_to(mag.global_position) < d0 - 1.5, "magnet arm drags small enemies in")
+	check(em.get_pos(i).distance_to(mag.global_position) < d0 - 1.5, "magnet arm drags small enemies in")
 	em.enemy_types[1].speed = 6.0
 	robot.assembly.detach(mag)
 	em.clear_all()
@@ -1074,7 +1076,7 @@ func _test_hover() -> void:
 	Input.action_press("move_forward")
 	for f in 90:
 		await get_tree().physics_frame
-		rs.enemies.pos[e] = robot.global_position + Vector3(8, 0.8, 0) # keep it beside us
+		rs.enemies.set_pos(e, robot.global_position + Vector3(8, 0.8, 0)) # keep it beside us
 	Input.action_release("move_forward")
 	rs.enemies.enemy_types[2].speed = 2.2
 	var facing := -robot.global_basis.z
@@ -1088,7 +1090,7 @@ func _test_hover() -> void:
 func _hurt_count(em: EnemyManager, full: float = 70.0) -> int:
 	var n := 0
 	for i in em.count:
-		n += 1 if em.hp[i] < full - 0.01 else 0
+		n += 1 if em.get_hp(i) < full - 0.01 else 0
 	return n
 
 
@@ -1118,7 +1120,7 @@ func _test_new_weapons() -> void:
 		await get_tree().physics_frame
 		saw_on = saw_on or fb.is_firing()
 		saw_off_after = saw_off_after or (saw_on and not fb.is_firing())
-	check(em.hp[front] < 70.0 and is_equal_approx(em.hp[back], 70.0), "flame cone burns what's in front only (%.0f / %.0f)" % [em.hp[front], em.hp[back]])
+	check(em.get_hp(front) < 70.0 and is_equal_approx(em.get_hp(back), 70.0), "flame cone burns what's in front only (%.0f / %.0f)" % [em.get_hp(front), em.get_hp(back)])
 	check(saw_on and saw_off_after, "flamethrower fires in bursts")
 	# Cone mesh: narrow tip (+Y of the cylinder) at the nozzle, wide end out.
 	var cx: Transform3D = fb._cone.transform
@@ -1227,18 +1229,18 @@ func _test_paths_and_effects() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	em.apply_slow(i, 0.3, 5.0)
-	var pi0 := em.pos[i]
-	var pj0 := em.pos[j]
+	var pi0 := em.get_pos(i)
+	var pj0 := em.get_pos(j)
 	for f in 30:
 		await get_tree().physics_frame
-	var di := em.pos[i].distance_to(pi0)
-	var dj := em.pos[j].distance_to(pj0)
+	var di := em.get_pos(i).distance_to(pi0)
+	var dj := em.get_pos(j).distance_to(pj0)
 	check(di < dj * 0.5, "slowed enemy moves less (%.2f vs %.2f m)" % [di, dj])
-	var hp0 := em.hp[j]
+	var hp0 := em.get_hp(j)
 	em.apply_burn(j, 10.0, 2.0)
 	for f in 30:
 		await get_tree().physics_frame
-	check(em.hp[j] < hp0 - 3.0 and em.flash[j] <= 0.0, "burning ticks damage without hit flashes")
+	check(em.get_hp(j) < hp0 - 3.0 and em.get_flash(j) <= 0.0, "burning ticks damage without hit flashes")
 	em.clear_all()
 
 	# Trails: Scorched Steps (fire) on the legs.
@@ -1257,13 +1259,13 @@ func _test_paths_and_effects() -> void:
 	em.enemy_types[2].speed = 0.0
 	for f in 20:
 		await get_tree().physics_frame
-	check(em.burn_t[k] > 0.0 or em.hp[k] < 70.0, "enemies standing in it catch fire")
+	check(em.get_burn_t(k) > 0.0 or em.get_hp(k) < 70.0, "enemies standing in it catch fire")
 	# Oil patch slows.
 	hz.spawn(robot.global_position + Vector3(10, 0, 0), HazardField.Kind.OIL, 1.5, 5.0, 0.45)
 	var o := em.spawn(0, robot.global_position + Vector3(10, 0, 0))
 	for f in 20:
 		await get_tree().physics_frame
-	check(em.slow_t[o] > 0.0 and em.slow_mult[o] < 0.5, "oil slicks slow enemies")
+	check(em.get_slow_t(o) > 0.0 and em.get_slow_mult(o) < 0.5, "oil slicks slow enemies")
 	em.enemy_types[2].speed = 2.2
 	scene.queue_free()
 	await get_tree().process_frame
@@ -1437,6 +1439,108 @@ func _test_chassis_select() -> void:
 				check(asm.chassis.data.get_sockets().filter(func(s): return s.type == PartData.SocketType.LOCOMOTION).size() == 6, "Lancer has room for 3 drive pairs")
 		main.queue_free()
 		await get_tree().process_frame
+
+
+## Both horde backends must behave the same. Runs the GDScript twin and the
+## native HordeSim side by side on identical input and compares them. The
+## same checks also run against whichever backend is active (GDScript only
+## when the native library isn't built).
+func _test_horde_backends() -> void:
+	print("horde backends")
+	var sims: Array = [HordeSimGD.new()]
+	if ClassDB.class_exists("HordeSim"):
+		sims.append(ClassDB.instantiate("HordeSim"))
+	else:
+		print("    (native HordeSim not loaded: checking GDScript only)")
+	var radius := PackedFloat32Array([0.35, 0.3, 0.8])
+	var speed := PackedFloat32Array([3.4, 5.0, 2.2])
+	var color := PackedColorArray([Color(0.8, 0.3, 0.2), Color(0.9, 0.8, 0.2), Color(0.5, 0.3, 0.6)])
+	var hp0 := [16.0, 8.0, 70.0]
+	for sim in sims:
+		sim.setup(400, 2.0, 58.0)
+		sim.set_types(radius, speed, color)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 1234
+		for i in 300:
+			var ty := i % 3
+			var ang := rng.randf() * TAU
+			sim.spawn(ty, Vector3(cos(ang), 0, sin(ang)) * rng.randf_range(0.5, 25.0), hp0[ty])
+		for i in range(0, 300, 7):
+			sim.apply_slow(i, 0.5, 1.0)
+		for i in range(3, 300, 11):
+			sim.apply_burn(i, 30.0, 2.0)
+
+	# Basic behavior, per backend.
+	for sim in sims:
+		var tag: String = sim.backend_name()
+		check(sim.get_count() == 300 and sim.alive_count() == 300, "%s: spawned 300" % tag)
+		check(sim.spawn(9, Vector3.ZERO, 1.0) == -1, "%s: unknown type is refused" % tag)
+		var near: PackedInt32Array = sim.query_radius(Vector3.ZERO, 6.0)
+		var brute := 0
+		for i in sim.get_count():
+			var p: Vector3 = sim.get_pos(i)
+			brute += 1 if p.x * p.x + p.z * p.z <= 36.0 else 0
+		check(near.size() == brute, "%s: grid radius query matches brute force (%d)" % [tag, brute])
+		var n: int = sim.find_nearest(Vector3(3, 0, 3), 40.0, Vector3.FORWARD, -1.0)
+		var best := INF
+		for i in sim.get_count():
+			best = minf(best, Vector2(sim.get_pos(i).x - 3.0, sim.get_pos(i).z - 3.0).length())
+		check(n >= 0 and is_equal_approx(Vector2(sim.get_pos(n).x - 3.0, sim.get_pos(n).z - 3.0).length(), best), "%s: find_nearest finds the closest" % tag)
+		var cone: int = sim.find_nearest(Vector3.ZERO, 40.0, Vector3.RIGHT, cos(deg_to_rad(20.0)))
+		var cp: Vector3 = sim.get_pos(cone)
+		check(cone < 0 or Vector2(cp.x, cp.z).normalized().dot(Vector2.RIGHT) >= cos(deg_to_rad(20.0)) - 0.001, "%s: find_nearest respects the cone" % tag)
+
+	# Simulate both for a second with a moving target and compare.
+	var contacts := []
+	var kills := []
+	for sim in sims:
+		var nc := 0
+		var nk := 0
+		for f in 60:
+			var target := Vector3(sin(f * 0.05) * 4.0, 0, cos(f * 0.05) * 4.0)
+			sim.step(1.0 / 60.0, target, 0.6, true)
+			nc += sim.get_contacts().size()
+			sim.resolve_contacts()
+			nk += sim.take_kills().size()
+			if f == 30:
+				var hits: int = sim.damage_radius(target, 3.0, 25.0, 4.0)
+				nk += sim.take_kills().size()
+				check(hits > 0, "%s: damage_radius hits the crowd (%d)" % [sim.backend_name(), hits])
+		contacts.append(nc)
+		kills.append(nk)
+		check(nk > 0, "%s: burning enemies die and are reported (%d)" % [sim.backend_name(), nk])
+	if sims.size() < 2:
+		return
+	var a: RefCounted = sims[0]
+	var b: RefCounted = sims[1]
+	check(contacts[0] == contacts[1], "parity: same robot contacts (%d / %d)" % contacts)
+	check(kills[0] == kills[1], "parity: same kills (%d / %d)" % kills)
+	var max_dp := 0.0
+	var max_dhp := 0.0
+	for i in a.get_count():
+		max_dp = maxf(max_dp, a.get_pos(i).distance_to(b.get_pos(i)))
+		max_dhp = maxf(max_dhp, absf(a.get_hp(i) - b.get_hp(i)))
+	check(max_dp < 0.01 and max_dhp < 0.01, "parity: positions and hp agree after 60 steps (%.5f m, %.5f hp)" % [max_dp, max_dhp])
+	var qa: PackedInt32Array = a.query_radius(Vector3(2, 0, -1), 5.0)
+	var qb: PackedInt32Array = b.query_radius(Vector3(2, 0, -1), 5.0)
+	qa.sort()
+	qb.sort()
+	check(qa == qb, "parity: query_radius (%d)" % qa.size())
+	var sa: PackedInt32Array = a.query_segment(Vector3.ZERO, Vector3(1, 0, 1).normalized(), 20.0, 0.5)
+	var sb: PackedInt32Array = b.query_segment(Vector3.ZERO, Vector3(1, 0, 1).normalized(), 20.0, 0.5)
+	sa.sort()
+	sb.sort()
+	check(sa == sb, "parity: query_segment (%d)" % sa.size())
+	check(a.find_nearest(Vector3(1, 0, 1), 30.0, Vector3.LEFT, 0.5) == b.find_nearest(Vector3(1, 0, 1), 30.0, Vector3.LEFT, 0.5), "parity: find_nearest")
+	a.compact()
+	b.compact()
+	check(a.get_count() == b.get_count(), "parity: compact leaves %d" % a.get_count())
+	var ba: PackedFloat32Array = a.get_multimesh_buffer(Vector3.ZERO)
+	var bb: PackedFloat32Array = b.get_multimesh_buffer(Vector3.ZERO)
+	var max_db := 0.0
+	for k in a.get_count() * 16:
+		max_db = maxf(max_db, absf(ba[k] - bb[k]))
+	check(ba.size() == bb.size() and max_db < 0.01, "parity: MultiMesh buffers agree (%.5f)" % max_db)
 
 
 ## Informational: average frame cost with a full horde (not a pass/fail check,

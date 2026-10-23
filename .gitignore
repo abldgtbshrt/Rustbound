@@ -5,3 +5,6 @@
 export_presets.cfg
 .import/
 *.tmp
+
+# Native build trees (the libraries themselves live in bin/ and are committed)
+native/build*/

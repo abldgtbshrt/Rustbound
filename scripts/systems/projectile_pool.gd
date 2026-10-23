@@ -92,8 +92,9 @@ func _physics_process(delta: float) -> void:
 			var r := radius[i]
 			for e in enemies.query_radius(p, r + 1.0):
 				var er := enemies.get_radius(e)
-				var dx := enemies.pos[e].x - p.x
-				var dz := enemies.pos[e].z - p.z
+				var ep := enemies.get_pos(e)
+				var dx := ep.x - p.x
+				var dz := ep.z - p.z
 				if dx * dx + dz * dz > (r + er) * (r + er) or p.y > er * 2.0 + 0.4:
 					continue
 				var push := Vector3(vel[i].x, 0.0, vel[i].z).normalized() * knock[i]

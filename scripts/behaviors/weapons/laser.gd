@@ -43,7 +43,7 @@ func on_tick(delta: float) -> void:
 		_charge = 0.0
 		return
 	if asm.has_cpu_for(part):
-		aim = enemies.pos[target] - origin
+		aim = enemies.get_pos(target) - origin
 		aim.y = 0.0
 		aim = aim.normalized()
 	var rate := asm.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult()
@@ -73,18 +73,10 @@ func _fire_beam(origin: Vector3, dir: Vector3, reach: float) -> int:
 	var dmg := float(param("damage", 45.0)) * robot.assembly.get_mod(part, "damage_mult")
 	var fx := hit_fx()
 	var hits := 0
-	for i in enemies.count:
-		if enemies.hp[i] <= 0.0:
-			continue
-		var to := enemies.pos[i] - origin
-		to.y = 0.0
-		var along := to.dot(dir)
-		if along < 0.0 or along > reach:
-			continue
-		if (to - dir * along).length() <= width + enemies.get_radius(i):
-			enemies.damage(i, dmg, dir * 2.0)
-			enemies.apply_hit_fx(i, fx)
-			hits += 1
+	for i in enemies.query_segment(origin, dir, reach, width):
+		enemies.damage(i, dmg, dir * 2.0)
+		enemies.apply_hit_fx(i, fx)
+		hits += 1
 	return hits
 
 
