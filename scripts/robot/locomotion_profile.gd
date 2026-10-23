@@ -21,6 +21,12 @@ extends RefCounted
 enum Mode { BALL, WALKER, ROVER, TANK, SKATER, STOMPER, HOVER }
 
 const MODE_NAMES := ["Ball", "Walker", "Rover", "Tank", "Skater", "Stomper", "Hover"]
+const DRIVE_NAMES := {
+	PartData.Drive.LEG: "legs",
+	PartData.Drive.WHEEL: "wheels",
+	PartData.Drive.TREAD: "treads",
+	PartData.Drive.HOVER: "hover pads",
+}
 
 var mode: Mode = Mode.BALL
 var top_speed: float = 4.0
@@ -143,7 +149,7 @@ static func resolve(entries: Array, center_of_mass: Vector3) -> LocomotionProfil
 		var parts: PackedStringArray = []
 		for nm in idle_names.keys():
 			parts.append("%d %s" % [idle_names[nm], nm])
-		prof.conflict = "%s idle: %s drive" % [", ".join(parts), ["", "legs", "wheels", "treads", "hover pads"][winner]]
+		prof.conflict = "%s idle: %s drive" % [", ".join(parts), DRIVE_NAMES.get(winner, "other")]
 	return prof
 
 

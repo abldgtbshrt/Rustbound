@@ -77,6 +77,15 @@ static func button(text: String, size: int = 14) -> Button:
 	return b
 
 
+static func drive_text(drive: int) -> String:
+	match drive:
+		PartData.Drive.LEG: return "Drive: legs (Walker). Put wheels/treads on their feet for Skater/Stomper"
+		PartData.Drive.WHEEL: return "Drive: wheels (Rover)"
+		PartData.Drive.TREAD: return "Drive: treads (Tank)"
+		PartData.Drive.HOVER: return "Drive: hover pads (Hover). Strafes, faces enemies, draws power"
+		_: return "Drive"
+
+
 ## One-line-per-stat summary used on level-up cards and the build panel.
 static func describe_part(p: PartData) -> PackedStringArray:
 	var out := PackedStringArray()
@@ -86,7 +95,7 @@ static func describe_part(p: PartData) -> PackedStringArray:
 	out.append("%s  |  %s socket, size %d" % [PartData.Category.keys()[p.category].capitalize(), " or ".join(types), p.attach_size])
 	out.append(PartData.rarity_name(p.rarity) + ("  -  unique: one per run" if p.unique else ""))
 	if p.drive != PartData.Drive.NONE:
-		out.append(["", "Drive: legs (Walker). Put wheels/treads on its foot for Skater/Stomper", "Drive: wheels (Rover)", "Drive: treads (Tank)"][p.drive])
+		out.append(drive_text(p.drive))
 	var tier := RunState.get_tier(p.id)
 	if tier > 1:
 		out.append("%s (all copies)" % PartData.tier_name(tier))

@@ -35,6 +35,7 @@ func _run() -> void:
 	await _test_drive_feel()
 	await _test_signature_parts()
 	_test_pairs()
+	_test_every_part_describes()
 	await _test_hover()
 	await _test_new_weapons()
 	await _test_paths_and_effects()
@@ -998,6 +999,21 @@ func _test_signature_parts() -> void:
 	check(robot.hp > 50.0, "scrap maw repairs from scrap (%.0f)" % robot.hp)
 	scene.queue_free()
 	await get_tree().process_frame
+
+
+## Every part's description (level-up cards, build panel) must build without
+## errors, so new enum values can't crash the UI.
+func _test_every_part_describes() -> void:
+	print("part descriptions")
+	var lt := get_node("/root/LootTable")
+	var bad: PackedStringArray = []
+	for p in lt.parts:
+		var lines: Variant = UiStyle.describe_part(p)
+		if not (lines is PackedStringArray) or (lines as PackedStringArray).size() < 2:
+			bad.append(String(p.id))
+	check(lt.parts.size() >= 25 and bad.is_empty(), "all %d parts describe cleanly %s" % [lt.parts.size(), bad])
+	for d in PartData.Drive.values():
+		check(UiStyle.drive_text(d) != "", "drive text for %s" % PartData.Drive.keys()[d])
 
 
 func _test_pairs() -> void:
