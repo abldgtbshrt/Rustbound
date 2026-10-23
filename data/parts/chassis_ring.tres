@@ -1,0 +1,191 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_axee1"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_fteba"]
+
+[sub_resource type="Resource" id="Resource_bsfk3"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_0"
+type = 1
+size = 2
+position = Vector3(0, 0, -0.7)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_ssahm"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_1"
+type = 1
+size = 2
+position = Vector3(-0.494975, 0, -0.494975)
+rotation_degrees = Vector3(0, 45, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_r3hc3"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_2"
+type = 1
+size = 2
+position = Vector3(-0.7, 0, -4.28626e-17)
+rotation_degrees = Vector3(0, 90, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_jy8dc"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_3"
+type = 1
+size = 2
+position = Vector3(-0.494975, 0, 0.494975)
+rotation_degrees = Vector3(0, 135, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_b1q40"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_4"
+type = 1
+size = 2
+position = Vector3(-8.57253e-17, 0, 0.7)
+rotation_degrees = Vector3(0, 180, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_82gyv"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_5"
+type = 1
+size = 2
+position = Vector3(0.494975, 0, 0.494975)
+rotation_degrees = Vector3(0, 225, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_c4qjt"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_6"
+type = 1
+size = 2
+position = Vector3(0.7, 0, 1.28588e-16)
+rotation_degrees = Vector3(0, 270, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_jet6t"]
+script = ExtResource("2_fteba")
+marker_name = &"rim_7"
+type = 1
+size = 2
+position = Vector3(0.494975, 0, -0.494975)
+rotation_degrees = Vector3(0, 315, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_ybgef"]
+script = ExtResource("2_fteba")
+marker_name = &"top"
+type = 1
+size = 2
+position = Vector3(0, 0.3, 0.1)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[sub_resource type="Resource" id="Resource_qoyev"]
+script = ExtResource("2_fteba")
+marker_name = &"bottom"
+type = 3
+size = 2
+position = Vector3(0, -0.3, 0)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(2, 2)
+grid_u = Vector3(0.8, 0, 0)
+grid_v = Vector3(0, 0, 0.6)
+
+[sub_resource type="Resource" id="Resource_731we"]
+script = ExtResource("2_fteba")
+marker_name = &"internal"
+type = 2
+size = 1
+position = Vector3(0, 0, 0)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(2, 1)
+grid_u = Vector3(0.5, 0, 0)
+grid_v = Vector3(0, 0, 0)
+
+[sub_resource type="Resource" id="Resource_v34pt"]
+script = ExtResource("2_fteba")
+marker_name = &"head"
+type = 0
+size = 1
+position = Vector3(0, 0.3, -0.4)
+rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
+
+[resource]
+script = ExtResource("1_axee1")
+id = &"chassis_ring"
+display_name = "Carousel"
+category = 1
+mass = 3.2
+power_draw = 0.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 40.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+energy_capacity = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
+drive = 0
+top_speed = 0.0
+thrust = 0.0
+grip = 1.0
+jump_force = 0.0
+mass_capacity = 0.0
+turn_rate_deg = 540.0
+attach_type = 0
+alt_attach_types = Array[int]([])
+attach_size = 2
+sockets = Array[ExtResource("2_fteba")]([SubResource("Resource_bsfk3"), SubResource("Resource_ssahm"), SubResource("Resource_r3hc3"), SubResource("Resource_jy8dc"), SubResource("Resource_b1q40"), SubResource("Resource_82gyv"), SubResource("Resource_c4qjt"), SubResource("Resource_jet6t"), SubResource("Resource_ybgef"), SubResource("Resource_qoyev"), SubResource("Resource_731we"), SubResource("Resource_v34pt")])
+component_slots = 1
+behaviors = Array[Script]([])
+params = {
+"arc_bonus": 40.0,
+"feature": "Round hull with 8 rim mounts facing every way: weapon arcs +40°, turns 25% faster.",
+"starter": [["loco_biped_leg", "bottom_0_0", 0], ["gun_nail", "rim_0", 0], ["gun_nail", "rim_4", 0]],
+"turn_rate_mult": 1.25
+}
+tags = PackedStringArray()
+upgrade_per_tier = {
+"hp": 0.35
+}
+paths = Array[Dictionary]([])
+paired = false
+rarity = 0
+unique = false
+drop_weight = 0.0
+scrap_value = 5
+visual_shape = 1
+visual_size = Vector3(1.4, 0.6, 1.4)
+visual_offset = Vector3(0, 0, 0)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.5, 0.55, 0.5, 1)

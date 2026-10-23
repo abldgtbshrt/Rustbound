@@ -253,9 +253,18 @@ func attach_selected(parent: PartInstance, socket_name: StringName) -> bool:
 
 
 ## Moves a part (and everything on it) to the bench. Overflow is scrapped.
+## The core and the run's chassis can't be removed.
+func is_locked(inst: PartInstance) -> bool:
+	var robot := RunState.robot
+	return inst == null or robot == null or inst == robot.assembly.root \
+		or inst.data.category == PartData.Category.CHASSIS
+
+
 func detach_selected() -> bool:
 	var robot := RunState.robot
-	if selected_part == null or robot == null or selected_part == robot.assembly.root:
+	if robot == null or is_locked(selected_part):
+		if selected_part != null:
+			EventBus.message.emit("The chassis is locked in for this run")
 		return false
 	var inst := selected_part
 	_set_selected_part(null)
@@ -268,7 +277,8 @@ func detach_selected() -> bool:
 	return not removed.is_empty()
 
 
-## Everything except the core goes to the bench, to rebuild from scratch.
+## Everything except the core and chassis goes to the bench, to rebuild
+## from scratch.
 func strip_all() -> int:
 	var robot := RunState.robot
 	if robot == null or robot.assembly.root == null:
@@ -276,8 +286,11 @@ func strip_all() -> int:
 	_set_selected_part(null)
 	selected_bench = -1
 	var removed: Array[PartData] = []
-	for child in robot.assembly.root.get_child_parts():
-		removed.append_array(robot.assembly.detach(child))
+	# Everything except the core and the locked chassis.
+	for top in robot.assembly.root.get_child_parts():
+		var targets: Array[PartInstance] = top.get_child_parts() if top.data.category == PartData.Category.CHASSIS else [top]
+		for child in targets:
+			removed.append_array(robot.assembly.detach(child))
 	var items := RobotAssembly.to_bench_items(removed)
 	for p in items:
 		RunState.add_to_inventory(p, true)
@@ -299,7 +312,7 @@ func scrap_selected() -> bool:
 			return false
 		total = p.scrap_value
 		selected_bench = -1
-	elif selected_part != null and selected_part != robot.assembly.root:
+	elif selected_part != null and not is_locked(selected_part):
 		var inst := selected_part
 		_set_selected_part(null)
 		for p in RobotAssembly.to_bench_items(robot.assembly.detach_with_twin(inst)):
@@ -521,7 +534,7 @@ func _update_overlay() -> void:
 		var dd := inst.data
 		if dd.params.has("arc_deg"):
 			var r := minf(float(dd.params.get("reach", dd.params.get("range", 3.0))), 3.0)
-			_arc(arc_pts, inst.global_position, inst.get_facing_global(), float(dd.params["arc_deg"]), r)
+			_arc(arc_pts, inst.global_position, inst.get_facing_global(), minf(float(dd.params["arc_deg"]) + asm.arc_bonus, 360.0), r)
 		if dd.armor_block > 0.0:
 			_arc(armor_pts, inst.global_position, inst.get_facing_global(), dd.armor_arc_deg, 1.2)
 	if _ghost != null and _ghost_part != null and _ghost_part.params.has("arc_deg"):

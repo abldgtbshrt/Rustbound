@@ -14,7 +14,7 @@ func on_tick(delta: float) -> void:
 	if fwd == Vector3.ZERO:
 		return
 	var reach := float(param("pull_range", 9.0))
-	var cos_half := cos(deg_to_rad(float(param("arc_deg", 100.0)) * 0.5))
+	var cos_half := cos(deg_to_rad(arc_param(100.0) * 0.5))
 	var speed := float(param("pull_speed", 6.0))
 	var max_r := float(param("max_enemy_radius", 0.45))
 	for i in enemies.query_radius(origin, reach):

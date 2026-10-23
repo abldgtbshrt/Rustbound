@@ -34,6 +34,8 @@ var part_tiers: Dictionary = {}
 var uniques_taken: Dictionary = {}
 ## Chosen upgrade path per part id (id -> path id).
 var part_paths: Dictionary = {}
+## The chassis picked at run start (locked for the run).
+var chassis_id: StringName = &""
 
 ## Detached / unplaced parts ("the bench"). Used by build mode. The cap only
 ## limits new acquisitions; parts you detach always fit.
@@ -64,6 +66,7 @@ func begin_new_run(p_seed: int = 0) -> void:
 	part_tiers.clear()
 	uniques_taken.clear()
 	part_paths.clear()
+	chassis_id = &""
 	running = true
 	run_started.emit()
 	inventory_changed.emit()

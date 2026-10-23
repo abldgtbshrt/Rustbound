@@ -40,7 +40,7 @@ func on_tick(delta: float) -> void:
 	if fwd == Vector3.ZERO:
 		fwd = -robot.global_basis.z
 	var reach := float(param("bite_range", 1.4))
-	var cos_half := cos(deg_to_rad(float(param("arc_deg", 100.0)) * 0.5))
+	var cos_half := cos(deg_to_rad(arc_param(100.0) * 0.5))
 	var dmg := float(param("bite_damage", 10.0)) * robot.assembly.get_mod(part, "damage_mult")
 	var bit := false
 	for i in enemies.query_radius(origin, reach + 1.0):

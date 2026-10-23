@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_f73tk"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_8aoeo"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_re1xd"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_y4i6n"]
 
 [resource]
-script = ExtResource("1_f73tk")
+script = ExtResource("1_re1xd")
 id = &"head_sensor"
 display_name = "Sensor Head"
 category = 5
@@ -35,7 +35,7 @@ turn_rate_deg = 540.0
 attach_type = 0
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_8aoeo")]([])
+sockets = Array[ExtResource("2_y4i6n")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}

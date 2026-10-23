@@ -57,6 +57,18 @@ var recover_time_mult: float = 1.0
 var recover_pulse: float = 0.0
 var armor_parts: Array[PartInstance] = []
 
+# Chassis features (see the chassis PartData params). The chassis is chosen
+# at the start of a run and can't be removed.
+var chassis: PartInstance
+var hp_mult: float = 1.0
+var armor_bonus: float = 0.0
+## Degrees added to every weapon's firing arc.
+var arc_bonus: float = 0.0
+## Global weapon multipliers from the chassis: range_mult, damage_mult, ...
+var chassis_mods: Dictionary = {}
+## Extra damage for weapons facing within 45° of straight ahead.
+var front_damage_mult: float = 1.0
+
 ## Moment of inertia of the starter robot; it turns at its parts' rated speed.
 const INERTIA_REF := 1.6
 ## Mass points closer than this are linked (as are parent and child).
@@ -93,6 +105,28 @@ func build(p_robot: RobotController) -> void:
 			inst = auto_attach(p)
 		if inst == null:
 			push_warning("Starting part %s found no free socket" % p.id)
+
+
+## Swaps in a different chassis and its starter layout (run start only: the
+## chassis is locked afterwards). Everything else on the robot is removed.
+func rebuild_with_chassis(chassis_data: PartData) -> void:
+	if root == null or chassis_data == null:
+		return
+	for child in root.get_child_parts():
+		for p in child.walk():
+			for b in p.behaviors:
+				b.on_detached()
+		root.detach_child_part(child)
+		child.free()
+	attach(chassis_data, root, &"chassis", false)
+	for e in chassis_data.params.get("starter", []):
+		var part: PartData = LootTable.get_part(StringName(e[0]))
+		if part == null:
+			push_warning("Starter part %s not found" % e[0])
+			continue
+		if attach_by_socket_name(part, StringName(e[1]), false, int(e[2])) == null:
+			push_warning("Starter part %s found no socket %s" % [e[0], e[1]])
+	recompute()
 
 
 ## Attaches to the first part (in tree order) with a free, compatible socket
@@ -210,11 +244,14 @@ func find_best_socket(part: PartData) -> Array:
 	var best: Array = []
 	var best_score := INF
 	var com_mass := Vector2(center_of_mass.x, center_of_mass.z) * total_mass
+	var frame_drive := get_frame_drive()
 	for entry in _walk_local():
 		var inst: PartInstance = entry[0]
 		var xf: Transform3D = entry[1]
 		for s in inst.get_free_sockets():
 			if not can_fit(part, s):
+				continue
+			if part.drive != PartData.Drive.NONE and not _drive_slot_ok(part, inst, frame_drive):
 				continue
 			if part.paired:
 				var sp := xf * s.get_transform().origin
@@ -227,6 +264,26 @@ func find_best_socket(part: PartData) -> Array:
 				best_score = score
 				best = [inst, s.marker_name]
 	return best
+
+
+## The drive type mounted directly on the frame (not on legs), or NONE.
+func get_frame_drive() -> int:
+	for p in get_all_parts():
+		if p.data.drive != PartData.Drive.NONE and (p.parent_part == null or p.parent_part.data.drive != PartData.Drive.LEG):
+			return p.data.drive
+	return PartData.Drive.NONE
+
+
+# Auto-install rules for drivetrain parts, so they never create a conflict:
+# wheels/treads go on a walker's feet (Skater / Stomper), anything else must
+# match the drive already on the frame.
+func _drive_slot_ok(part: PartData, inst: PartInstance, frame_drive: int) -> bool:
+	var on_leg := inst.data.drive == PartData.Drive.LEG
+	if frame_drive == PartData.Drive.LEG and part.drive in [PartData.Drive.WHEEL, PartData.Drive.TREAD]:
+		return on_leg
+	if on_leg:
+		return false
+	return frame_drive == PartData.Drive.NONE or frame_drive == part.drive
 
 
 ## Turns an attached part by `delta_steps` x 45° around its socket's up axis.
@@ -256,7 +313,9 @@ func find_mirror_socket(part: PartData, inst: PartInstance, socket: SocketDef) -
 		var other: PartInstance = e[0]
 		var xf: Transform3D = e[1]
 		for s in other.get_free_sockets():
-			if s == socket or not can_fit(part, s):
+			# SocketDefs are shared by every copy of a part, so compare the
+			# (part, socket) pair, not just the socket.
+			if (other == inst and s == socket) or not can_fit(part, s):
 				continue
 			if (xf * other.get_socket_transform(s).origin).distance_to(want) < 0.06:
 				return [other, s]
@@ -266,7 +325,13 @@ func find_mirror_socket(part: PartData, inst: PartInstance, socket: SocketDef) -
 ## Multiplier a part receives from linked neighbours (1.0 if none).
 func get_mod(inst: PartInstance, key: String, default_value: float = 1.0) -> float:
 	var m: Dictionary = _mods.get(inst, {})
-	return float(m.get(key, default_value))
+	var v := float(m.get(key, default_value)) * float(chassis_mods.get(key, 1.0))
+	if key == "damage_mult" and front_damage_mult != 1.0 and is_instance_valid(inst) and is_inside_tree():
+		var fwd := -global_basis.z
+		fwd.y = 0.0
+		if inst.get_facing_global().dot(fwd.normalized()) > 0.707:
+			v *= front_damage_mult
+	return v
 
 
 func get_links(inst: PartInstance) -> Array:
@@ -288,7 +353,7 @@ func armor_block_for(from_dir: Vector3) -> float:
 		if f == Vector3.ZERO:
 			continue
 		if f.dot(d) >= cos(deg_to_rad(a.data.armor_arc_deg * 0.5)):
-			pass_through *= 1.0 - clampf(a.stat("armor_block", a.data.armor_block), 0.0, 0.9)
+			pass_through *= 1.0 - clampf(a.stat("armor_block", a.data.armor_block) + armor_bonus, 0.0, 0.9)
 	return 1.0 - pass_through
 
 
@@ -366,6 +431,16 @@ func recompute() -> void:
 	recover_time_mult = 1.0
 	recover_pulse = 0.0
 	armor_parts.clear()
+	chassis = root.get_child_in(&"chassis") if root != null else null
+	var cp: Dictionary = chassis.data.params if chassis != null else {}
+	hp_mult = float(cp.get("hp_mult", 1.0))
+	armor_bonus = float(cp.get("armor_bonus", 0.0))
+	arc_bonus = float(cp.get("arc_bonus", 0.0))
+	front_damage_mult = float(cp.get("front_damage_mult", 1.0))
+	chassis_mods = {}
+	for k in ["range_mult", "damage_mult", "fire_rate_mult"]:
+		if cp.has(k):
+			chassis_mods[k] = float(cp[k])
 	links.clear()
 	_mods.clear()
 	_cpu_granted.clear()

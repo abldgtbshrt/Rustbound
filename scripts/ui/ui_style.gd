@@ -77,6 +77,39 @@ static func button(text: String, size: int = 14) -> Button:
 	return b
 
 
+const GROUPS := ["All", "Drive", "Weapons", "Defense", "Power", "Utility", "Frame"]
+
+
+## Which parts-list tab a part belongs to.
+static func part_group(p: PartData) -> String:
+	if p.drive != PartData.Drive.NONE:
+		return "Drive"
+	if p.category == PartData.Category.FRAME or p.category == PartData.Category.CHASSIS:
+		return "Frame"
+	if p.params.has("damage") or p.params.has("dps") or p.params.has("bite_damage"):
+		return "Weapons"
+	if p.armor_block > 0.0 or p.params.has("shield_arc_deg") or (p.category == PartData.Category.MOUNT and p.hp >= 30.0):
+		return "Defense"
+	if p.power_output > 0.0 or p.energy_capacity > 0.0 or p.heat_dissipation > 0.0:
+		return "Power"
+	return "Utility"
+
+
+## What a drivetrain part would do to the robot's drive if placed.
+static func predict_drive(p: PartData, asm: RobotAssembly) -> String:
+	if p.drive == PartData.Drive.NONE or asm == null:
+		return ""
+	var frame := asm.get_frame_drive()
+	var names := {PartData.Drive.LEG: "Walker", PartData.Drive.WHEEL: "Rover", PartData.Drive.TREAD: "Tank", PartData.Drive.HOVER: "Hover"}
+	if frame == PartData.Drive.LEG and p.drive == PartData.Drive.WHEEL:
+		return "On your legs' feet: SKATER (fast, jumps, slides, rams; no stomp)"
+	if frame == PartData.Drive.LEG and p.drive == PartData.Drive.TREAD:
+		return "On your legs' feet: STOMPER (heavy stomps, crush, slow, low jump)"
+	if frame == PartData.Drive.NONE or frame == p.drive:
+		return "Drive: %s" % String(names.get(p.drive, "?")).to_upper()
+	return "Conflicts with your %s drive: it would sit idle on the frame" % String(names.get(frame, "?"))
+
+
 static func drive_text(drive: int) -> String:
 	match drive:
 		PartData.Drive.LEG: return "Drive: legs (Walker). Put wheels/treads on their feet for Skater/Stomper"

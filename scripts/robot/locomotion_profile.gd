@@ -42,6 +42,10 @@ var can_jump: bool = false
 var is_ball: bool = true
 ## Recoil and shoves barely move it.
 var anchored: bool = false
+## Fraction of all incoming damage ignored (armored hulls).
+var damage_reduction: float = 0.0
+## Load ratio the drive carries before slowing down (treads: 2x).
+var load_tolerance: float = 1.0
 var part_count: int = 0
 var leg_count: int = 0
 var stomp: float = 0.0
@@ -204,15 +208,18 @@ static func _walker(prof: LocomotionProfile) -> void:
 	_legs_jump(prof)
 
 
+## Skater: fast and jumpy, but slides around and can't stomp (the wheels
+## are in the way); rams with the skates instead.
 static func _skater(prof: LocomotionProfile, wheels: Array) -> void:
 	prof.mode = Mode.SKATER
-	prof.top_speed = prof.top_speed * 1.6 + 2.0
+	prof.top_speed = prof.top_speed * 1.5 + 1.0
 	prof.thrust *= 0.8
-	prof.grip = 0.5
+	prof.grip = 0.4
 	prof.coast_drag = 0.35
 	prof.mass_capacity += _boot_sum(wheels, "mass_capacity", true) * 0.5
-	prof.ram += _boot_sum(wheels, "ram")
-	prof.jump_force *= 0.9
+	prof.ram += _boot_sum(wheels, "ram") * 0.5
+	prof.stomp = 0.0
+	prof.jump_force *= 0.85
 	_legs_jump(prof)
 
 
@@ -224,10 +231,12 @@ static func _stomper(prof: LocomotionProfile, treads: Array) -> void:
 	prof.coast_drag = 10.0
 	prof.anchored = true
 	prof.mass_capacity += _boot_sum(treads, "mass_capacity", true)
-	prof.stomp *= 1.5
+	prof.stomp *= 1.6
 	prof.crush += _boot_sum(treads, "crush")
-	prof.jump_force *= 0.6
+	prof.jump_force *= 0.55
 	prof.turn_rate_deg *= 0.7
+	prof.top_speed *= 0.93 # 0.7x overall with the 0.75 above
+	prof.damage_reduction = 0.1
 	_legs_jump(prof)
 
 
@@ -254,5 +263,7 @@ static func _tank(prof: LocomotionProfile, _active: Array) -> void:
 	prof.coast_drag = 12.0
 	prof.grip = 1.0
 	prof.anchored = true
+	prof.damage_reduction = 0.25
+	prof.load_tolerance = 2.0
 	prof.jump_force = 0.0
 	prof.can_jump = false

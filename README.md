@@ -18,12 +18,19 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 - **Rotator**: spins whatever is mounted on it, so guns on it sweep 360°.
 - **Chain Sword Arm**: melee, hits everything in its reach and arc; no CPU needed.
 - **Physics from the build**: mass, center of mass, support footprint and height are computed from where parts actually sit. They drive acceleration (thrust / mass), top speed (slows past mass capacity, stops at 2×), sideways drift from asymmetric builds, visual lean, and **tipping over** (1.5 s knockdown) when a top-heavy robot turns or brakes too hard. Gyros counter it.
+- **Chassis pick at run start** (locked for the run; keys 1-4):
+  - **Bulwark** (box): the most hardpoints, +25% max HP, armor plates block 15% more.
+  - **Spire** (tower): +25% weapon range and +1 CPU; tall and tippy.
+  - **Carousel** (ring): 8 rim mounts facing every way, weapon arcs +40°, turns 25% faster.
+  - **Lancer** (spine): room for 3 drivetrain pairs, forward-facing weapons +20% damage, turns 15% slower.
+  Each chassis brings its own starting loadout (legs + front and rear nailgun). The chassis can't be detached, scrapped or stripped.
 - **Drive modes** (no blending, each has its own controller):
-  - **Walker** (legs): nimble, plants its feet to stop, jumps, stomps.
-  - **Rover** (wheels): drives along its heading like a car, needs speed to steer, coasts and drifts, rams, no jump.
-  - **Tank** (treads): pivots in place until facing where you want, then rolls; slow, crushes, can't be pushed.
-  - **Skater** (wheels on legs' feet): glides on momentum, jumps, stomps *and* rams.
-  - **Stomper** (treads on legs' feet): slower, anchored, 1.5x stomps, crushes.
+  - **Walker** (legs): nimble, plants its feet to stop, jumps, stomps, but carries little (5 per leg) and slows when loaded.
+  - **Rover** (wheels): the fastest (12 m/s), carries 9 per wheel, drives like a car with sharper steering, coasts and drifts, rams hard, no jump.
+  - **Tank** (treads): hauls 14 per tread with no slowdown until 2x, 25% damage reduction, quick pivot in place, crushes, can't be pushed.
+  - **Skater** (wheels on legs' feet): faster than walking (~10.75 m/s) and jumps and rams, but slides around and can't stomp.
+  - **Stomper** (treads on legs' feet): 1.6x stomps, crushes, 10% damage reduction, but slow and jumps low.
+  - Auto-installed drivetrains never create a conflict: wheels/treads go on a walker's feet; a different drive type goes to the bench.
   - **Hover** (hover pads, rare): floats 0.5 m up, slides with almost no friction, strafes in any direction while turning to face the nearest enemy. Pads draw 2 power each; in a brownout they lose most of their thrust.
   - **Drivetrains come in pairs**: one Legs / Wheels / Treads / Hover Pads item places a mirrored pair (left + right); detaching either side benches the pair. Add more pairs for 4 or 6. Wheels or treads on leg feet go on as a pair too.
   - Hybrids only happen through a leg's **foot** socket. Different drive types bolted directly to the frame conflict: the majority drives, the rest sit idle, and the HUD and build panel say so.
@@ -50,6 +57,7 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
   - Enemies show status: orange = burning, blue = slowed.
 - **Pickups go to the bench**: overworld parts are never auto-attached; place them in build mode. Level-up parts still auto-install (toggle in build mode).
 - **The bench**: new parts auto-install on the most balanced free socket (toggle in build mode); otherwise they go to an 8-slot bench, and overflow is scrapped.
+- **Parts list**: the bench is split into tabs (All / Drive / Weapons / Defense / Power / Utility / Frame) with counts. Rows show name, Mk, rarity color and "(pair)". Selecting a part (bench or on the robot) shows its details first: what drive it would make, how many free sockets it fits, then its full stats, path and links.
 - **Build mode** (Tab): the world pauses (set `BuildMode.pause_world` off to go back to 10% slow motion) and the camera moves in. **Strip to core** sends every part to the bench to rebuild from scratch; detached parts always fit on the bench. Free sockets show as colored dots (gray structural, orange mount, cyan internal, green locomotion); pick a bench part and only the sockets it fits remain. Hover one to see a ghost, Q/E to rotate, click to attach. **M** toggles mirror placement (a second bench copy goes on the mirrored cell, mirrored; rotating a part also turns its twin). Click a part on the robot to rotate, detach (to bench, with everything on it) or scrap it. Overlays: center of mass (pink), footprint (green), links (cyan), weapon arcs (orange), armor arcs (blue).
 - **Heat**: weapons add heat per shot, reactors add it passively, heat sinks raise capacity and cooling. Cooling scales with speed (airflow), so kiting cools you and camping bakes you. **Shift vents** all heat as a scalding blast: radius and damage grow with the heat dumped, 6 s cooldown. Over capacity you overheat and take light damage (3 HP/s) until you cool to 80%.
 - **Budget HUD**: energy (shows charge rate, OVERCHARGE or BROWNOUT), heat, vent, CPU, mass and tilt bars turn red when you're over. F3 shows the detailed physics readout.
@@ -86,7 +94,7 @@ Weapons fire on their own.
 godot --headless --fixed-fps 60 res://tests/run_tests.tscn
 ```
 
-196 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, and a 600-enemy benchmark. Exit code is non-zero on failure.
+240 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, chassis selection and features, the leg-combo and parts-list regressions, drive balance, and a 600-enemy benchmark. Exit code is non-zero on failure.
 
 ## Content
 

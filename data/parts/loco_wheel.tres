@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_44elk"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_4w35r"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_v7nh8"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_g3gx5"]
 
 [resource]
-script = ExtResource("1_44elk")
+script = ExtResource("1_v7nh8")
 id = &"loco_wheel"
 display_name = "Scrap Wheels"
 category = 2
@@ -24,20 +24,20 @@ armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
 drive = 2
-top_speed = 11.0
-thrust = 22.0
-grip = 0.35
+top_speed = 12.0
+thrust = 30.0
+grip = 0.55
 jump_force = 0.0
-mass_capacity = 5.0
-turn_rate_deg = 360.0
+mass_capacity = 9.0
+turn_rate_deg = 300.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_4w35r")]([])
+sockets = Array[ExtResource("2_g3gx5")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {
-"ram": 0.5
+"ram": 0.8
 }
 tags = PackedStringArray()
 upgrade_per_tier = {

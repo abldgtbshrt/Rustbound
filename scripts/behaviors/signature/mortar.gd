@@ -31,7 +31,7 @@ func on_tick(delta: float) -> void:
 	var fwd := part.get_facing_global()
 	if fwd == Vector3.ZERO:
 		fwd = -robot.global_basis.z
-	var cos_half := cos(deg_to_rad(float(param("arc_deg", 160.0)) * 0.5))
+	var cos_half := cos(deg_to_rad(arc_param(160.0) * 0.5))
 	var min_r := float(param("min_range", 6.0))
 	var max_r := float(param("range", 20.0)) * robot.assembly.get_mod(part, "range_mult")
 	# Aim at the enemy with the most neighbours: lob into the thick of it.

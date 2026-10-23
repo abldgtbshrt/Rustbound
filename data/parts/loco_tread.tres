@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_irj8r"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_dx1yp"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_rh1jy"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_r4pto"]
 
 [resource]
-script = ExtResource("1_irj8r")
+script = ExtResource("1_rh1jy")
 id = &"loco_tread"
 display_name = "Tread Units"
 category = 2
@@ -24,16 +24,16 @@ armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
 drive = 3
-top_speed = 5.0
-thrust = 45.0
+top_speed = 6.0
+thrust = 55.0
 grip = 1.0
 jump_force = 0.0
-mass_capacity = 12.0
-turn_rate_deg = 200.0
+mass_capacity = 14.0
+turn_rate_deg = 260.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("2_dx1yp")]([])
+sockets = Array[ExtResource("2_r4pto")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {

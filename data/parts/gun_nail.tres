@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_m23d4"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_1u3qw"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_r302q"]
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_57lvs"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_jqht6"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_oukng"]
 
 [resource]
-script = ExtResource("2_1u3qw")
+script = ExtResource("2_jqht6")
 id = &"gun_nail"
 display_name = "Nailgun"
 category = 3
@@ -34,9 +34,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("3_r302q")]([])
+sockets = Array[ExtResource("3_oukng")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_m23d4")])
+behaviors = Array[Script]([ExtResource("1_57lvs")])
 params = {
 "arc_deg": 120.0,
 "damage": 9.0,

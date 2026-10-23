@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/weapons/flamethrower.gd" id="1_xog7d"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_eoj8w"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_5ougl"]
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/flamethrower.gd" id="1_gvx6s"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_fj15o"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_5rgjl"]
 
 [resource]
-script = ExtResource("2_eoj8w")
+script = ExtResource("2_fj15o")
 id = &"gun_flamethrower"
 display_name = "Flamethrower"
 category = 3
@@ -34,9 +34,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("3_5ougl")]([])
+sockets = Array[ExtResource("3_5rgjl")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_xog7d")])
+behaviors = Array[Script]([ExtResource("1_gvx6s")])
 params = {
 "arc_deg": 50.0,
 "burst_time": 1.2,
