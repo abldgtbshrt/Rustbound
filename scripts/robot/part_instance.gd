@@ -103,6 +103,14 @@ func get_tier() -> int:
 	return RunState.get_tier(data.id) if data != null else 1
 
 
+## The chosen upgrade path's data, or {}.
+func get_chosen_path() -> Dictionary:
+	if data == null:
+		return {}
+	var pid: StringName = RunState.get_path_id(data.id)
+	return data.find_path(pid) if pid != &"" else {}
+
+
 ## A stat scaled by this part's tier. `base` is usually the PartData value.
 func stat(key: String, base: float) -> float:
 	return data.scaled(key, base, get_tier())

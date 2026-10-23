@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_hqy4o"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_6e5rk"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_qmeqn"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_1imsa"]
 
 [resource]
-script = ExtResource("1_hqy4o")
+script = ExtResource("1_qmeqn")
 id = &"mod_heat_sink"
 display_name = "Heat Sink"
 category = 4
@@ -25,6 +25,7 @@ armor_arc_deg = 120.0
 neighbor_mods = {
 "heat_mult": 0.5
 }
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -34,7 +35,7 @@ turn_rate_deg = 540.0
 attach_type = 2
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_6e5rk")]([])
+sockets = Array[ExtResource("2_1imsa")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
@@ -43,6 +44,10 @@ upgrade_per_tier = {
 "heat_capacity": 0.3,
 "heat_dissipation": 0.3
 }
+paths = Array[Dictionary]([])
+paired = false
+rarity = 0
+unique = false
 drop_weight = 0.8
 scrap_value = 5
 visual_shape = 0

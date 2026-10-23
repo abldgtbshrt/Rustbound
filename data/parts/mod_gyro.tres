@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_l6xuu"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_hvqtf"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_ce557"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_kj6b3"]
 
 [resource]
-script = ExtResource("1_l6xuu")
+script = ExtResource("1_ce557")
 id = &"mod_gyro"
 display_name = "Gyro"
 category = 4
@@ -25,6 +25,7 @@ armor_arc_deg = 120.0
 neighbor_mods = {
 "spread_mult": 0.4
 }
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -34,7 +35,7 @@ turn_rate_deg = 540.0
 attach_type = 2
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_hvqtf")]([])
+sockets = Array[ExtResource("2_kj6b3")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {
@@ -48,6 +49,10 @@ upgrade_per_tier = {
 "stability": 0.3,
 "turn_rate_mult": 0.05
 }
+paths = Array[Dictionary]([])
+paired = false
+rarity = 1
+unique = false
 drop_weight = 0.8
 scrap_value = 5
 visual_shape = 2

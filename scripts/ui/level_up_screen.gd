@@ -66,6 +66,8 @@ func choose(index: int) -> void:
 		var p: PartData = picked["part"]
 		if picked["kind"] == "upgrade":
 			RunState.upgrade_part(p)
+		elif picked["kind"] == "path":
+			RunState.choose_path(p, picked["path"])
 		else:
 			RunState.acquire_part(p)
 	else:
@@ -134,14 +136,26 @@ func _fill_cards() -> void:
 		var o := offers[i]
 		var p: PartData = o["part"]
 		var upgrade: bool = o["kind"] == "upgrade"
+		var is_path: bool = o["kind"] == "path"
 		var card := PanelContainer.new()
-		card.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.C_XP if upgrade else p.visual_color))
+		card.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.ACCENT if is_path else (UiStyle.C_XP if upgrade else PartData.rarity_color(p.rarity))))
 		card.custom_minimum_size = Vector2(250, 300)
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 4)
 		card.add_child(v)
 		var t := RunState.get_tier(p.id)
-		if upgrade:
+		if is_path:
+			var path := p.find_path(o["path"])
+			v.add_child(UiStyle.label("UPGRADE PATH  -  pick one", 12, UiStyle.ACCENT))
+			v.add_child(UiStyle.label("[%d]  %s" % [i + 1, p.get_display_name()], 18))
+			v.add_child(UiStyle.label("%s: %s" % [PartData.tier_name(PartData.PATH_TIER), String(path.get("name", ""))], 16, UiStyle.ACCENT))
+			var dl := UiStyle.label(String(path.get("desc", "")), 13, UiStyle.TEXT)
+			dl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			v.add_child(dl)
+			for line in UpgradeOffers.describe_upgrade(p):
+				v.add_child(UiStyle.label(line, 12, UiStyle.DIM))
+			v.add_child(UiStyle.label("the other path is gone for this run", 12, UiStyle.DIM))
+		elif upgrade:
 			v.add_child(UiStyle.label("UPGRADE", 12, UiStyle.C_XP))
 			v.add_child(UiStyle.label("[%d]  %s" % [i + 1, p.get_display_name()], 18))
 			v.add_child(UiStyle.label("%s  ->  %s" % [PartData.tier_name(t), PartData.tier_name(t + 1)], 15, UiStyle.C_XP))
@@ -149,7 +163,7 @@ func _fill_cards() -> void:
 				v.add_child(UiStyle.label(line, 13, UiStyle.DIM))
 			v.add_child(UiStyle.label("applies to every copy you own", 12, UiStyle.DIM))
 		else:
-			v.add_child(UiStyle.label("NEW PART", 12, UiStyle.ACCENT))
+			v.add_child(UiStyle.label("NEW PART  -  %s" % PartData.rarity_name(p.rarity).to_upper(), 12, PartData.rarity_color(p.rarity)))
 			v.add_child(UiStyle.label("[%d]  %s  %s" % [i + 1, p.get_display_name(), PartData.tier_name(t) if t > 1 else ""], 18))
 			for line in UiStyle.describe_part(p):
 				var l := UiStyle.label(line, 13, UiStyle.DIM)
@@ -158,7 +172,7 @@ func _fill_cards() -> void:
 		var spacer := Control.new()
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		v.add_child(spacer)
-		if not upgrade:
+		if not upgrade and not is_path:
 			var fit := "Goes to bench"
 			if asm != null:
 				var best := asm.find_best_socket(p)
@@ -167,7 +181,7 @@ func _fill_cards() -> void:
 				elif RunState.auto_install:
 					fit = "Installs on %s" % String(best[1])
 			v.add_child(UiStyle.label(fit, 13, UiStyle.C_TILT))
-		var pick := UiStyle.button("Upgrade" if upgrade else "Take")
+		var pick := UiStyle.button("Choose path" if is_path else ("Upgrade" if upgrade else "Take"))
 		pick.pressed.connect(choose.bind(i))
 		v.add_child(pick)
 		_cards.add_child(card)

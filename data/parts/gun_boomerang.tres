@@ -1,0 +1,80 @@
+[gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/boomerang.gd" id="1_6avra"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_xm5cf"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_6t6ft"]
+
+[resource]
+script = ExtResource("2_xm5cf")
+id = &"gun_boomerang"
+display_name = "Boomerang Launcher"
+category = 3
+mass = 1.0
+power_draw = 1.0
+heat_per_sec = 0.0
+cpu_cost = 0
+hp = 8.0
+power_output = 0.0
+cpu_output = 0
+pickup_radius = 0.0
+stability = 0.0
+energy_capacity = 0.0
+heat_capacity = 0.0
+heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
+drive = 0
+top_speed = 0.0
+thrust = 0.0
+grip = 1.0
+jump_force = 0.0
+mass_capacity = 0.0
+turn_rate_deg = 540.0
+attach_type = 1
+alt_attach_types = Array[int]([])
+attach_size = 1
+sockets = Array[ExtResource("3_6t6ft")]([])
+component_slots = 1
+behaviors = Array[Script]([ExtResource("1_6avra")])
+params = {
+"blades": 1,
+"curve": 1.2,
+"damage": 16.0,
+"flight_time": 1.4,
+"heat_per_throw": 2.0,
+"interval": 2.2,
+"range": 9.0
+}
+tags = PackedStringArray()
+upgrade_per_tier = {
+"damage": 0.25,
+"interval": -0.06,
+"range": 0.08
+}
+paths = Array[Dictionary]([{
+"desc": "Throws two blades in mirrored arcs.",
+"id": "twin",
+"name": "Twin Blades",
+"params": {
+"blades": 2
+}
+}, {
+"desc": "Blades slow enemies to 50% for 2 s.",
+"id": "razor",
+"name": "Razor Wind",
+"params": {
+"slow_dur": 2.0,
+"slow_mult": 0.5
+}
+}])
+paired = false
+rarity = 0
+unique = false
+drop_weight = 1.0
+scrap_value = 5
+visual_shape = 0
+visual_size = Vector3(0.3, 0.2, 0.4)
+visual_offset = Vector3(0, 0.1, -0.15)
+visual_rotation_degrees = Vector3(0, 0, 0)
+visual_color = Color(0.6, 0.6, 0.7, 1)

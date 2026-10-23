@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_sok7h"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_snnty"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_f73tk"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_8aoeo"]
 
 [resource]
-script = ExtResource("1_sok7h")
+script = ExtResource("1_f73tk")
 id = &"head_sensor"
 display_name = "Sensor Head"
 category = 5
@@ -25,6 +25,7 @@ armor_arc_deg = 120.0
 neighbor_mods = {
 "range_mult": 1.25
 }
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -34,7 +35,7 @@ turn_rate_deg = 540.0
 attach_type = 0
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_snnty")]([])
+sockets = Array[ExtResource("2_8aoeo")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
@@ -43,6 +44,10 @@ upgrade_per_tier = {
 "cpu_output": 0.5,
 "pickup_radius": 0.3
 }
+paths = Array[Dictionary]([])
+paired = false
+rarity = 1
+unique = false
 drop_weight = 0.6
 scrap_value = 5
 visual_shape = 0

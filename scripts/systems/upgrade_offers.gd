@@ -4,12 +4,14 @@ extends RefCounted
 ## Builds level-up offers. Early levels mostly upgrade what you already have,
 ## so the robot grows stronger before it grows chaotic; new parts become more
 ## common as you level.
-## Each offer: { "kind": "upgrade" | "new", "part": PartData }
+## Each offer: { "kind": "upgrade" | "new" | "path", "part": PartData,
+## "path": path id (path offers only) }. Upgrading to Mk III is a fork: the
+## part shows up as two path cards instead of one upgrade card.
 
 ## Chance a card offers a new part at level 2, growing per level.
-const NEW_PART_BASE := 0.12
-const NEW_PART_PER_LEVEL := 0.05
-const NEW_PART_MAX := 0.55
+const NEW_PART_BASE := 0.08
+const NEW_PART_PER_LEVEL := 0.04
+const NEW_PART_MAX := 0.4
 
 
 static func new_part_chance(level: int) -> float:
@@ -45,11 +47,26 @@ static func roll(count: int, level: int, rng: RandomNumberGenerator) -> Array[Di
 			if p != null:
 				offer = {"kind": "new", "part": p}
 		else:
-			offer = {"kind": "upgrade", "part": ups[rng.randi() % ups.size()]}
+			var up: PartData = ups[rng.randi() % ups.size()]
+			if RunState.needs_path_choice(up):
+				# Both branches, side by side (only if there's room for both).
+				if offers.size() + 2 > count or _has_part(offers, up):
+					continue
+				for p in up.paths:
+					offers.append({"kind": "path", "part": up, "path": StringName(p["id"])})
+				continue
+			offer = {"kind": "upgrade", "part": up}
 		if offer.is_empty() or _has(offers, offer):
 			continue
 		offers.append(offer)
 	return offers
+
+
+static func _has_part(offers: Array[Dictionary], p: PartData) -> bool:
+	for x in offers:
+		if x["part"] == p and x["kind"] != "new":
+			return true
+	return false
 
 
 static func _has(offers: Array[Dictionary], o: Dictionary) -> bool:
@@ -69,6 +86,11 @@ static func describe_upgrade(part: PartData) -> PackedStringArray:
 			continue
 		var a := part.scaled(String(key), base, t)
 		var b := part.scaled(String(key), base, t + 1)
+		if part.params.get(key) is int or String(key) == "cpu_output":
+			a = round(a)
+			b = round(b)
+			if a == b:
+				continue # whole-number stat that only ticks up every other Mk
 		out.append("%s  %s -> %s" % [String(key).replace("_", " "), _fmt(a), _fmt(b)])
 	return out
 

@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_1pk8v"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_ij5x4"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_ouhoo"]
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_0kyv3"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_o4tjr"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_xnrtv"]
 
 [resource]
-script = ExtResource("2_ij5x4")
+script = ExtResource("2_o4tjr")
 id = &"gun_rivet"
 display_name = "Rivet Cannon"
 category = 3
@@ -24,6 +24,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -33,9 +34,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("3_ouhoo")]([])
+sockets = Array[ExtResource("3_xnrtv")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_1pk8v")])
+behaviors = Array[Script]([ExtResource("1_0kyv3")])
 params = {
 "arc_deg": 70.0,
 "damage": 40.0,
@@ -55,6 +56,27 @@ upgrade_per_tier = {
 "fire_rate": 0.1,
 "hp": 0.3
 }
+paths = Array[Dictionary]([{
+"desc": "Each rivet explodes: 60% splash in 2.5 m.",
+"id": "explosive",
+"name": "Explosive Rivets",
+"params": {
+"splash_frac": 0.6,
+"splash_radius": 2.5
+}
+}, {
+"desc": "Double knockback; hits slow to 35% for 1 s.",
+"id": "concussion",
+"name": "Concussion",
+"params": {
+"knockback": 12.0,
+"slow_dur": 1.0,
+"slow_mult": 0.35
+}
+}])
+paired = false
+rarity = 1
+unique = false
 drop_weight = 0.5
 scrap_value = 5
 visual_shape = 0

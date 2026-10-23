@@ -19,10 +19,24 @@ func param(key: String, default_value: Variant) -> Variant:
 	if part == null or part.data == null:
 		return default_value
 	var v: Variant = part.data.params.get(key, default_value)
+	var path := part.get_chosen_path()
+	if not path.is_empty() and (path.get("params", {}) as Dictionary).has(key):
+		v = path["params"][key] # the chosen Mk III path overrides / adds params
 	if v is float or v is int:
 		var scaled := part.stat(key, float(v))
 		return int(round(scaled)) if v is int else scaled
 	return v
+
+
+## On-hit extras (splash, slow, burn) gathered from params, for projectiles
+## and melee hits.
+func hit_fx() -> Dictionary:
+	var out := {}
+	for k in ["splash_radius", "splash_frac", "slow_mult", "slow_dur", "burn_dps", "burn_dur"]:
+		var v: Variant = param(k, 0.0)
+		if float(v) != 0.0:
+			out[k] = float(v)
+	return out
 
 
 func on_attached() -> void:

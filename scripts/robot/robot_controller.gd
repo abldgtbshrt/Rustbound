@@ -99,6 +99,9 @@ var _knockdown_t := 0.0
 var _knockdown_axis := Vector3.RIGHT
 var _was_on_floor := true
 var _fall_speed := 0.0
+var _trail_dist := 0.0
+var _last_pos := Vector3.ZERO
+var _bob_t := 0.0
 
 
 func _ready() -> void:
@@ -172,34 +175,29 @@ func _physics_process(delta: float) -> void:
 	if dir.length() > 1.0:
 		dir = dir.normalized()
 
+	if prof.mode != LocomotionProfile.Mode.HOVER:
+		assembly.position.y = 0.0
 	var hvel := Vector3(velocity.x, 0.0, velocity.z)
 	var start_hvel := hvel
-	var desired := dir * get_top_speed()
 	var accel := prof.thrust / mass
 	if is_knocked_down:
-		accel = 6.0 # sliding to a stop on your side
-
-	# Grip: the part of the velocity change that is sideways to the current
-	# heading is scaled down, so low-grip builds (wheels) drift through turns.
-	var dv := desired - hvel
-	if hvel.length() > 0.5 and not is_knocked_down:
-		var fwd := hvel.normalized()
-		var along := fwd * dv.dot(fwd)
-		var perp := dv - along
-		dv = along + perp * lerpf(0.25, 1.0, prof.grip)
-	hvel += dv.limit_length(accel * delta)
+		hvel = hvel.move_toward(Vector3.ZERO, 6.0 * delta) # sliding on your side
+	else:
+		match prof.mode:
+			LocomotionProfile.Mode.ROVER:
+				hvel = _move_vehicle(hvel, dir, delta, accel, false)
+			LocomotionProfile.Mode.TANK:
+				hvel = _move_vehicle(hvel, dir, delta, accel, true)
+			LocomotionProfile.Mode.HOVER:
+				hvel = _move_hover(hvel, dir, delta, accel)
+			_:
+				hvel = _move_free(hvel, dir, delta, accel)
 
 	# Asymmetry: an off-center center of mass pulls the robot to that side.
 	if hvel.length() > 0.2 and alive:
 		var side := global_basis.x * assembly.center_of_mass.x
 		var speed_frac := clampf(hvel.length() / maxf(prof.top_speed, 0.1), 0.0, 1.0)
 		hvel += side * drift_factor * speed_frac * delta * 4.0
-
-	# Face the direction of travel. Turn speed comes from the locomotion,
-	# slowed by mass far from the center (inertia), sped up by gyros.
-	if dir.length() > 0.1:
-		var target_yaw := atan2(-dir.x, -dir.z)
-		rotation.y = rotate_toward(rotation.y, target_yaw, deg_to_rad(get_turn_rate_deg()) * delta)
 
 	velocity.x = hvel.x
 	velocity.z = hvel.z
@@ -225,12 +223,134 @@ func _physics_process(delta: float) -> void:
 	_was_on_floor = on_floor
 
 	_update_energy(delta)
+	_update_trail(delta)
 	_update_heat(delta)
 	_update_tipping(delta, (hvel - start_hvel) / maxf(delta, 0.0001))
 
 	if alive:
 		for b in assembly.get_all_behaviors():
 			b.on_tick(delta)
+
+
+## Walker / Skater / Stomper / Ball: move toward the input direction and
+## face it. Walkers stop on a dime; skaters and balls keep their momentum and
+## carve through turns.
+func _move_free(hvel: Vector3, dir: Vector3, delta: float, accel: float) -> Vector3:
+	var prof := assembly.locomotion
+	var glides := prof.mode == LocomotionProfile.Mode.SKATER or prof.mode == LocomotionProfile.Mode.BALL
+	if dir.length() > 0.1:
+		var desired := dir * get_top_speed()
+		var dv := desired - hvel
+		if hvel.length() > 0.5:
+			var fwd := hvel.normalized()
+			var along := fwd * dv.dot(fwd)
+			var perp := dv - along
+			dv = along + perp * lerpf(0.25, 1.0, prof.grip)
+		hvel += dv.limit_length(accel * delta)
+		var target_yaw := atan2(-dir.x, -dir.z)
+		rotation.y = rotate_toward(rotation.y, target_yaw, deg_to_rad(get_turn_rate_deg()) * delta)
+	elif glides:
+		hvel = hvel.move_toward(Vector3.ZERO, maxf(prof.coast_drag * hvel.length(), 0.3) * delta)
+	else:
+		# Feet plant: walkers brake much harder than they accelerate.
+		hvel = hvel.move_toward(Vector3.ZERO, maxf(accel * 3.0, 15.0) * delta)
+	return hvel
+
+
+## Hover: slides toward the input in any direction without turning to face
+## it. The robot turns to face the nearest enemy instead (or the way it's
+## drifting if nothing's around). Pads need power: brownout = 40% thrust.
+func _move_hover(hvel: Vector3, dir: Vector3, delta: float, accel: float) -> Vector3:
+	var prof := assembly.locomotion
+	if browned_out:
+		accel *= 0.4
+	if dir.length() > 0.1:
+		var dv := dir * get_top_speed() - hvel
+		hvel += dv.limit_length(accel * delta)
+	else:
+		hvel = hvel.move_toward(Vector3.ZERO, maxf(prof.coast_drag * hvel.length(), 0.2) * delta)
+	var face := Vector3.ZERO
+	if RunState.enemies != null:
+		var i := RunState.enemies.find_nearest(global_position, 18.0)
+		if i >= 0:
+			face = RunState.enemies.pos[i] - global_position
+	if face == Vector3.ZERO and hvel.length() > 1.0:
+		face = hvel
+	face.y = 0.0
+	if face.length_squared() > 0.01:
+		rotation.y = rotate_toward(rotation.y, atan2(-face.x, -face.z), deg_to_rad(get_turn_rate_deg()) * delta)
+	# Gentle bob so it reads as floating.
+	_bob_t += delta
+	assembly.position.y = sin(_bob_t * 2.5) * 0.06
+	return hvel
+
+
+## Trail paths on the drivetrain (fire / oil / static) leave ground patches
+## every so often while moving.
+func _update_trail(_delta: float) -> void:
+	var moved := Vector2(global_position.x - _last_pos.x, global_position.z - _last_pos.z).length()
+	_last_pos = global_position
+	if RunState.hazards == null or not alive or moved > 3.0:
+		return
+	var trail := _trail_params()
+	if trail.is_empty():
+		return
+	_trail_dist += moved
+	if _trail_dist < float(trail.get("trail_spacing", 0.8)):
+		return
+	_trail_dist = 0.0
+	var kind := HazardField.Kind.FIRE
+	match String(trail["trail"]):
+		"oil": kind = HazardField.Kind.OIL
+		"static": kind = HazardField.Kind.STATIC
+	RunState.hazards.spawn(global_position, kind, float(trail.get("trail_radius", 1.1)), float(trail.get("trail_life", 4.0)), float(trail.get("trail_strength", 8.0)))
+
+
+func _trail_params() -> Dictionary:
+	for inst in assembly.locomotion.active_parts:
+		if not is_instance_valid(inst):
+			continue
+		var path := inst.get_chosen_path()
+		var pp: Dictionary = path.get("params", {})
+		if pp.has("trail"):
+			return pp
+	return {}
+
+
+## Rover / Tank: the robot drives along its heading. Rovers steer like a car
+## (steering needs speed), carry momentum and drift with low grip. Tanks pivot
+## in place until they face where you want to go, then roll forward.
+func _move_vehicle(hvel: Vector3, dir: Vector3, delta: float, accel: float, pivot: bool) -> Vector3:
+	var prof := assembly.locomotion
+	var turn := deg_to_rad(get_turn_rate_deg())
+	var heading := -global_basis.z
+	heading.y = 0.0
+	heading = heading.normalized()
+	var speed := hvel.dot(heading)
+	var target_speed := 0.0
+	if dir.length() > 0.1:
+		var target_yaw := atan2(-dir.x, -dir.z)
+		var diff := absf(angle_difference(rotation.y, target_yaw))
+		if pivot:
+			rotation.y = rotate_toward(rotation.y, target_yaw, turn * delta)
+			if diff < deg_to_rad(35.0):
+				target_speed = get_top_speed() * dir.length() * cos(diff)
+		else:
+			var authority := clampf(absf(speed) / 4.0, 0.25, 1.0)
+			rotation.y = rotate_toward(rotation.y, target_yaw, turn * authority * delta)
+			target_speed = get_top_speed() * dir.length() if diff < deg_to_rad(110.0) else -get_top_speed() * 0.35
+		speed = move_toward(speed, target_speed, accel * delta)
+	else:
+		speed = move_toward(speed, 0.0, maxf(prof.coast_drag * absf(speed), 0.4) * delta)
+	# Re-read heading after steering: whatever velocity no longer points
+	# along it is sideways slip, which grip scrubs off (low grip = drift).
+	var new_heading := -global_basis.z
+	new_heading.y = 0.0
+	new_heading = new_heading.normalized()
+	var raw := (hvel - heading * hvel.dot(heading)) + heading * speed
+	var fwd := raw.dot(new_heading)
+	var slip := (raw - new_heading * fwd).move_toward(Vector3.ZERO, prof.grip * 25.0 * delta)
+	return new_heading * fwd + slip
 
 
 ## Jets fire while jump is held: in the air, or from the ground if the robot
@@ -443,7 +563,7 @@ func _fall_over(axis: Vector3) -> void:
 
 ## Weapons push back along their firing direction.
 func apply_recoil(impulse: Vector3) -> void:
-	var scale := 0.2 if _has_tag("anchored") else 1.0
+	var scale := 0.2 if assembly.locomotion.anchored else 1.0
 	velocity.x += impulse.x * scale / get_mass()
 	velocity.z += impulse.z * scale / get_mass()
 
@@ -453,7 +573,10 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	if not alive or amount <= 0.0:
 		return
 	if from_dir != Vector3.ZERO:
+		amount = _shield_absorb(amount, from_dir)
 		amount *= 1.0 - assembly.armor_block_for(from_dir)
+	if amount <= 0.0:
+		return
 	hp -= amount
 	EventBus.robot_damaged.emit(amount)
 	for b in assembly.get_all_behaviors():
@@ -465,16 +588,34 @@ func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 		RunState.end_run(false)
 
 
+## Shield Projectors facing the hit turn damage into battery drain.
+func _shield_absorb(amount: float, from_dir: Vector3) -> float:
+	var d := Vector3(from_dir.x, 0.0, from_dir.z)
+	if d.length_squared() < 0.0001 or browned_out:
+		return amount
+	d = d.normalized()
+	for s in assembly.shield_parts:
+		if not is_instance_valid(s) or energy <= 0.5:
+			continue
+		var f := s.get_facing_global()
+		var arc := float(s.data.params.get("shield_arc_deg", 120.0))
+		if f == Vector3.ZERO or f.dot(d) < cos(deg_to_rad(arc * 0.5)):
+			continue
+		var cost_per := float(s.data.params.get("energy_per_damage", 0.6))
+		var absorbed := minf(amount, energy / maxf(cost_per, 0.01))
+		energy -= absorbed * cost_per
+		amount -= absorbed
+		for b in s.behaviors:
+			if b.has_method("flash"):
+				b.call("flash")
+		if amount <= 0.0:
+			return 0.0
+	return amount
+
+
 func heal(amount: float) -> void:
 	if alive:
 		hp = minf(hp + amount, max_hp)
-
-
-func _has_tag(tag: String) -> bool:
-	for p in assembly.get_all_parts():
-		if p.data.tags.has(tag):
-			return true
-	return false
 
 
 func _on_assembly_changed() -> void:
