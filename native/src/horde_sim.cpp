@@ -17,7 +17,7 @@ static constexpr float STEER_RATE = 5.0f;
 
 void HordeSim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("setup", "capacity", "cell_size", "arena_half_extent"), &HordeSim::setup);
-	ClassDB::bind_method(D_METHOD("set_types", "radius", "speed", "color"), &HordeSim::set_types);
+	ClassDB::bind_method(D_METHOD("set_types", "radius", "speed", "color", "model_scale"), &HordeSim::set_types);
 	ClassDB::bind_method(D_METHOD("backend_name"), &HordeSim::backend_name);
 
 	ClassDB::bind_method(D_METHOD("get_count"), &HordeSim::get_count);
@@ -58,8 +58,8 @@ void HordeSim::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_contacts"), &HordeSim::get_contacts);
 	ClassDB::bind_method(D_METHOD("get_contact_dirs"), &HordeSim::get_contact_dirs);
 	ClassDB::bind_method(D_METHOD("resolve_contacts"), &HordeSim::resolve_contacts);
-	ClassDB::bind_method(D_METHOD("get_multimesh_buffer", "target"), &HordeSim::get_multimesh_buffer);
-	ClassDB::bind_method(D_METHOD("upload_multimesh", "multimesh", "target"), &HordeSim::upload_multimesh);
+	ClassDB::bind_method(D_METHOD("upload_multimeshes", "multimeshes", "target"), &HordeSim::upload_multimeshes);
+	ClassDB::bind_method(D_METHOD("get_type_buffer", "type", "target"), &HordeSim::get_type_buffer);
 }
 
 // --- Setup -------------------------------------------------------------------
@@ -88,19 +88,21 @@ void HordeSim::setup(int p_capacity, float p_cell_size, float p_arena_half_exten
 	cell_of.assign(capacity, 0);
 	grid_dirty = true;
 
-	mm_buffer.resize(capacity * 16);
+	type_buffers.clear();
+	type_counts.clear();
 	kills.clear();
 	contacts.clear();
 	contact_dirs.clear();
 	contact_push.clear();
 }
 
-void HordeSim::set_types(const PackedFloat32Array &p_radius, const PackedFloat32Array &p_speed, const PackedColorArray &p_color) {
+void HordeSim::set_types(const PackedFloat32Array &p_radius, const PackedFloat32Array &p_speed, const PackedColorArray &p_color, const PackedFloat32Array &p_model_scale) {
 	int n = (int)p_radius.size();
 	t_radius.resize(n);
 	t_speed.resize(n);
 	t_color.resize(n);
 	t_shape.resize(n);
+	t_lift.resize(n);
 	max_radius = 0.0f;
 	const Basis tip(Vector3(1, 0, 0), -Math_PI * 0.5);
 	for (int t = 0; t < n; t++) {
@@ -108,9 +110,17 @@ void HordeSim::set_types(const PackedFloat32Array &p_radius, const PackedFloat32
 		t_radius[t] = r;
 		t_speed[t] = t < p_speed.size() ? p_speed[t] : 0.0f;
 		t_color[t] = t < p_color.size() ? p_color[t] : Color(1, 1, 1);
-		float s = r * 2.0f;
-		// Prism points +Y; tip it forward so the wedge "noses" at the robot.
-		t_shape[t] = tip * Basis::from_scale(Vector3(s, s * 1.2f, s * 0.8f));
+		float ms = t < p_model_scale.size() ? p_model_scale[t] : 0.0f;
+		if (ms > 0.0f) {
+			// Authored model: faces -Z already; its origin is at its feet.
+			t_shape[t] = Basis::from_scale(Vector3(ms, ms, ms));
+			t_lift[t] = -r;
+		} else {
+			float s = r * 2.0f;
+			// Prism points +Y; tip it forward so the wedge "noses" at the robot.
+			t_shape[t] = tip * Basis::from_scale(Vector3(s, s * 1.2f, s * 0.8f));
+			t_lift[t] = 0.0f;
+		}
 		max_radius = std::max(max_radius, r);
 	}
 }
@@ -528,25 +538,35 @@ void HordeSim::resolve_contacts() {
 	contact_push.clear();
 }
 
-// MultiMesh buffer for TRANSFORM_3D + colors: per instance 12 floats (3x4
-// row-major basis | origin) then RGBA. Rows past `count` are left as they
-// are; set visible_instance_count = count.
-PackedFloat32Array HordeSim::get_multimesh_buffer(const Vector3 &p_target) {
-	if (mm_buffer.size() != capacity * 16) {
-		mm_buffer.resize(capacity * 16);
+// MultiMesh buffers for TRANSFORM_3D + colors, one per type: per instance
+// 12 floats (3x4 row-major basis | origin) then RGBA, in enemy index order.
+void HordeSim::fill_type_buffers(const Vector3 &p_target) {
+	const int ntypes = (int)t_radius.size();
+	type_buffers.resize(ntypes);
+	type_counts.assign(ntypes, 0);
+	for (int t = 0; t < ntypes; t++) {
+		if (type_buffers[t].size() != capacity * 16) {
+			type_buffers[t].resize(capacity * 16);
+		}
 	}
-	float *w = mm_buffer.ptrw();
+	std::vector<float *> w(ntypes);
+	for (int t = 0; t < ntypes; t++) {
+		w[t] = type_buffers[t].ptrw();
+	}
 	const Color burn_col(1.0f, 0.5f, 0.1f), slow_col(0.4f, 0.7f, 1.0f), white(1, 1, 1);
 	for (int i = 0; i < count; i++) {
 		const int t = type[i];
+		if (t < 0 || t >= ntypes) {
+			continue;
+		}
 		const Vector3 &p = pos[i];
 		Vector3 look(p_target.x - p.x, 0.0f, p_target.z - p.z);
 		Basis b;
 		if (look.length_squared() > 0.0001f) {
 			b = Basis::looking_at(look.normalized(), Vector3(0, 1, 0));
 		}
-		b = b * (t >= 0 && t < (int)t_shape.size() ? t_shape[t] : Basis());
-		float *o = w + i * 16;
+		b = b * t_shape[t];
+		float *o = w[t] + type_counts[t]++ * 16;
 		o[0] = b.rows[0].x;
 		o[1] = b.rows[0].y;
 		o[2] = b.rows[0].z;
@@ -554,12 +574,12 @@ PackedFloat32Array HordeSim::get_multimesh_buffer(const Vector3 &p_target) {
 		o[4] = b.rows[1].x;
 		o[5] = b.rows[1].y;
 		o[6] = b.rows[1].z;
-		o[7] = p.y;
+		o[7] = p.y + t_lift[t];
 		o[8] = b.rows[2].x;
 		o[9] = b.rows[2].y;
 		o[10] = b.rows[2].z;
 		o[11] = p.z;
-		Color col = (t >= 0 && t < (int)t_color.size()) ? t_color[t] : white;
+		Color col = t_color[t];
 		if (burn_t[i] > 0.0f) {
 			col = col.lerp(burn_col, 0.5f);
 		} else if (slow_t[i] > 0.0f) {
@@ -573,12 +593,29 @@ PackedFloat32Array HordeSim::get_multimesh_buffer(const Vector3 &p_target) {
 		o[14] = col.b;
 		o[15] = col.a;
 	}
-	return mm_buffer;
 }
 
-void HordeSim::upload_multimesh(const RID &p_multimesh, const Vector3 &p_target) {
-	if (!p_multimesh.is_valid() || capacity == 0) {
-		return;
+PackedInt32Array HordeSim::upload_multimeshes(const Array &p_multimeshes, const Vector3 &p_target) {
+	fill_type_buffers(p_target);
+	PackedInt32Array counts;
+	counts.resize((int64_t)type_counts.size());
+	RenderingServer *rs = RenderingServer::get_singleton();
+	for (int t = 0; t < (int)type_counts.size(); t++) {
+		counts.set(t, type_counts[t]);
+		if (t < p_multimeshes.size() && capacity > 0) {
+			RID rid = p_multimeshes[t];
+			if (rid.is_valid()) {
+				rs->multimesh_set_buffer(rid, type_buffers[t]);
+			}
+		}
 	}
-	RenderingServer::get_singleton()->multimesh_set_buffer(p_multimesh, get_multimesh_buffer(p_target));
+	return counts;
+}
+
+PackedFloat32Array HordeSim::get_type_buffer(int p_type, const Vector3 &p_target) {
+	fill_type_buffers(p_target);
+	if (p_type < 0 || p_type >= (int)type_buffers.size()) {
+		return PackedFloat32Array();
+	}
+	return type_buffers[p_type];
 }

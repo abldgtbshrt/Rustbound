@@ -114,7 +114,17 @@ func clear_all() -> void:
 	parts.clear()
 
 
+## Microseconds spent in the last physics step (F3 perf overlay).
+var last_step_usec: int = 0
+
+
 func _physics_process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_step(delta)
+	last_step_usec = Time.get_ticks_usec() - t0
+
+
+func _step(delta: float) -> void:
 	_time += delta
 	var robot := RunState.robot
 	if robot != null and robot.alive:

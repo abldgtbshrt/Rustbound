@@ -71,7 +71,7 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 | Space | Jump (legs only) |
 | Space (hold) | Jump, then jets while airborne |
 | Shift | Vent heat (blast around you) |
-| Tab | Build mode (10% time) |
+| Tab | Build mode (pauses) |
 | Left click | Build mode: attach / select |
 | Q / E | Build mode: rotate 45° |
 | M | Build mode: mirror placement |
@@ -79,7 +79,8 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 | Right mouse drag | Orbit camera |
 | Mouse wheel | Zoom |
 | R | Restart run |
-| F3 / F4 | Debug readout / PS2 effect |
+| Esc | Pause menu (resume, settings, restart, quit) |
+| F3 / F4 | Performance + physics readout / PS2 effect |
 
 Weapons fire on their own.
 
@@ -96,7 +97,19 @@ RUSTBOUND_HORDE_BACKEND=gdscript godot --headless --fixed-fps 60 res://tests/run
 godot --headless res://tests/bench_horde.tscn
 ```
 
-271 checks covering the native and GDScript horde backends (side by side, they must agree), assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, chassis selection and features, the leg-combo and parts-list regressions, drive balance, and a 600-enemy benchmark. Exit code is non-zero on failure.
+306 checks covering the native and GDScript horde backends (side by side, they must agree), settings, the pause menu, sound caps, the asset pipeline (import processing, validator, enemy models), assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, chassis selection and features, the leg-combo and parts-list regressions, drive balance, and a 600-enemy benchmark. Exit code is non-zero on failure.
+
+## Settings, pause, sound
+
+Esc pauses (resume, settings, restart, quit). Settings (volumes per bus, PS2 filter and its resolution, fullscreen, V-Sync, FPS cap) are saved to `user://settings.cfg` by the `Settings` autoload. F3 shows a performance readout (frame and physics ms, per-system ms for horde/projectiles/pickups, counts, draw calls) above the robot's physics stats.
+
+Sound effects go through the `Sfx` autoload: pooled voices with a per-sound voice cap and minimum gap, pitch jitter, and buses Master/Music/SFX/UI. Gameplay events (kills, hits, pickups, level-ups, vents, stomps, warnings) and every weapon (`weapon_fired`) are hooked up. The current sounds are synthesized placeholders from `tools/gen_placeholder_sfx.py`.
+
+## Adding art and sound
+
+See [CONTRIBUTING_ART.md](CONTRIBUTING_ART.md): budgets, folder layout, Blender rules, and how to hook a model up to a part or enemy. Models under `assets/` are processed on import by the `rustbound_pipeline` editor plugin (PS2 material, `Socket_<name>` empties become socket markers, turned to face -Z). `Project > Tools > Validate assets` (or `godot --headless res://tools/pipeline/validate_assets.tscn`) checks everything; `res://tools/pipeline/contact_sheet.tscn` renders every part and enemy to one PNG. CI does both on every pull request.
+
+Headless import: use `godot --headless --import`. `--editor --quit` can crash Godot 4.3 while a model imports with an editor plugin enabled.
 
 ## Content
 
@@ -109,7 +122,9 @@ To try the tippy Tower chassis, swap `chassis_box` for `chassis_tower` on `Robot
 ## Project layout
 
 ```
-autoload/          EventBus, RunState (run state + system refs), LootTable, MetaSave
+autoload/          EventBus, RunState (run state + system refs), LootTable, MetaSave, Settings, Sfx
+addons/            rustbound_pipeline (model import processing + Validate assets menu)
+assets/            art and sound (see CONTRIBUTING_ART.md), incl. _examples/
 data/parts|enemies starter content (.tres)
 scenes/main.tscn   root: low-res game viewport + UI layers
 scenes/levels/     prototype_arena.tscn (3D only; run main.tscn to play)
@@ -117,12 +132,12 @@ scripts/data/      PartData, SocketDef, EnemyData
 scripts/robot/     RobotAssembly, PartInstance, RobotController, LocomotionProfile, CameraRig, PartVisuals, BuildMode
 scripts/behaviors/ PartBehavior, weapons/ (nailgun, chain_sword, flamethrower, boomerang, laser, drone_bay), utility/ (rotator, jet), signature/ (magnet, tesla, mortar, shield, maw)
 scripts/systems/   EnemyManager (waves, kills, contacts), HordeSimGD (GDScript horde fallback), ProjectilePool, PickupManager, HazardField (trails), UpgradeOffers
-scripts/ui/        Hud, LevelUpScreen, BuildPanel, UiStyle
+scripts/ui/        Hud, LevelUpScreen, BuildPanel, ChassisSelect, PauseMenu, UiStyle
 shaders/           ps2_vertex (wobble), ps2_post (dither + quantize)
 tests/             run_tests.tscn, bench_horde.tscn
 native/            C++ horde simulation (GDExtension) + godot-cpp submodule
 bin/               prebuilt native libraries + rustbound_native.gdextension
-tools/             content generator
+tools/             content generator, placeholder sound generator, pipeline/ (validator, contact sheet, example models)
 ```
 
 ## Known prototype limits

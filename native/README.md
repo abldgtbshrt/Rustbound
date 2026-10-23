@@ -49,7 +49,7 @@ Windows DLL from Linux (mingw-w64 or llvm-mingw on PATH):
           -DCMAKE_TOOLCHAIN_FILE=native/mingw-toolchain.cmake
     cmake --build native/build-win --parallel
 
-Or let CI do it: Actions > **native** > Run workflow builds Linux, Windows
+Or let CI do it: Actions > **ci** > Run workflow builds Linux, Windows
 and macOS, runs the tests on both backends, and commits the binaries to
 your branch.
 

@@ -32,6 +32,7 @@ var t_radius := PackedFloat32Array()
 var t_speed := PackedFloat32Array()
 var t_color := PackedColorArray()
 var t_shape: Array[Basis] = []
+var t_lift := PackedFloat32Array()
 var max_radius: float = 0.5
 
 var grid_min: int = 0
@@ -45,7 +46,8 @@ var contacts := PackedInt32Array()
 var contact_dirs := PackedVector3Array()
 var contact_push := PackedVector3Array()
 var kills := PackedInt32Array()
-var mm_buffer := PackedFloat32Array()
+var type_buffers: Array[PackedFloat32Array] = []
+var type_counts := PackedInt32Array()
 
 
 func backend_name() -> String:
@@ -87,28 +89,38 @@ func setup(p_capacity: int, p_cell_size: float, p_arena_half_extent: float) -> v
 	cell_items.resize(capacity)
 	cell_of.resize(capacity)
 	grid_dirty = true
-	mm_buffer.resize(capacity * 16)
+	type_buffers.clear()
+	type_counts.clear()
 	kills.clear()
 	contacts.clear()
 	contact_dirs.clear()
 	contact_push.clear()
 
 
-func set_types(p_radius: PackedFloat32Array, p_speed: PackedFloat32Array, p_color: PackedColorArray) -> void:
+## model_scale[t] > 0: authored mesh (faces -Z, origin at its feet) drawn at
+## that uniform scale. 0: the placeholder wedge.
+func set_types(p_radius: PackedFloat32Array, p_speed: PackedFloat32Array, p_color: PackedColorArray, p_model_scale: PackedFloat32Array) -> void:
 	var n := p_radius.size()
 	t_radius = p_radius.duplicate()
 	t_speed.resize(n)
 	t_color.resize(n)
 	t_shape.resize(n)
+	t_lift.resize(n)
 	max_radius = 0.0
 	var tip := Basis(Vector3.RIGHT, -PI * 0.5)
 	for t in n:
 		var r := p_radius[t]
 		t_speed[t] = p_speed[t] if t < p_speed.size() else 0.0
 		t_color[t] = p_color[t] if t < p_color.size() else Color.WHITE
-		var s := r * 2.0
-		# Prism points +Y; tip it forward so the wedge "noses" at the robot.
-		t_shape[t] = tip * Basis.from_scale(Vector3(s, s * 1.2, s * 0.8))
+		var ms := p_model_scale[t] if t < p_model_scale.size() else 0.0
+		if ms > 0.0:
+			t_shape[t] = Basis.from_scale(Vector3(ms, ms, ms))
+			t_lift[t] = -r
+		else:
+			var s := r * 2.0
+			# Prism points +Y; tip it forward so the wedge "noses" at the robot.
+			t_shape[t] = tip * Basis.from_scale(Vector3(s, s * 1.2, s * 0.8))
+			t_lift[t] = 0.0
 		max_radius = maxf(max_radius, r)
 
 
@@ -508,48 +520,78 @@ func resolve_contacts() -> void:
 	contact_push.clear()
 
 
-func get_multimesh_buffer(target: Vector3) -> PackedFloat32Array:
-	if mm_buffer.size() != capacity * 16:
-		mm_buffer.resize(capacity * 16)
-	var burn_col := Color(1.0, 0.5, 0.1)
-	var slow_col := Color(0.4, 0.7, 1.0)
+func _fill_type_buffers(target: Vector3) -> void:
+	var ntypes := t_radius.size()
+	type_buffers.resize(ntypes)
+	type_counts.resize(ntypes)
+	type_counts.fill(0)
+	# Bucket enemy indices by type first, then write one type's buffer at a
+	# time through a sole reference (Packed arrays copy on shared writes).
+	var members: Array[Array] = [] # plain Arrays are shared by reference
+	for t in ntypes:
+		members.append([])
 	for i in count:
 		var t := type[i]
-		var p := pos[i]
-		var look := Vector3(target.x - p.x, 0.0, target.z - p.z)
-		var b := Basis.IDENTITY
-		if look.length_squared() > 0.0001:
-			b = Basis.looking_at(look.normalized(), Vector3.UP)
-		b = b * (t_shape[t] if t >= 0 and t < t_shape.size() else Basis.IDENTITY)
-		var o := i * 16
-		# Basis columns are x/y/z; the buffer wants rows.
-		mm_buffer[o] = b.x.x
-		mm_buffer[o + 1] = b.y.x
-		mm_buffer[o + 2] = b.z.x
-		mm_buffer[o + 3] = p.x
-		mm_buffer[o + 4] = b.x.y
-		mm_buffer[o + 5] = b.y.y
-		mm_buffer[o + 6] = b.z.y
-		mm_buffer[o + 7] = p.y
-		mm_buffer[o + 8] = b.x.z
-		mm_buffer[o + 9] = b.y.z
-		mm_buffer[o + 10] = b.z.z
-		mm_buffer[o + 11] = p.z
-		var col := t_color[t] if t >= 0 and t < t_color.size() else Color.WHITE
-		if burn_t[i] > 0.0:
-			col = col.lerp(burn_col, 0.5)
-		elif slow_t[i] > 0.0:
-			col = col.lerp(slow_col, 0.5)
-		if flash[i] > 0.0:
-			col = Color.WHITE
-		mm_buffer[o + 12] = col.r
-		mm_buffer[o + 13] = col.g
-		mm_buffer[o + 14] = col.b
-		mm_buffer[o + 15] = col.a
-	return mm_buffer
+		if t >= 0 and t < ntypes:
+			members[t].append(i)
+	var burn_col := Color(1.0, 0.5, 0.1)
+	var slow_col := Color(0.4, 0.7, 1.0)
+	for t in ntypes:
+		var w: PackedFloat32Array = type_buffers[t]
+		type_buffers[t] = PackedFloat32Array()
+		if w.size() != capacity * 16:
+			w.resize(capacity * 16)
+		var shape := t_shape[t]
+		var lift := t_lift[t]
+		var o := 0
+		for i: int in members[t]:
+			var p := pos[i]
+			var look := Vector3(target.x - p.x, 0.0, target.z - p.z)
+			var b := Basis.IDENTITY
+			if look.length_squared() > 0.0001:
+				b = Basis.looking_at(look.normalized(), Vector3.UP)
+			b = b * shape
+			# Basis columns are x/y/z; the buffer wants rows.
+			w[o] = b.x.x
+			w[o + 1] = b.y.x
+			w[o + 2] = b.z.x
+			w[o + 3] = p.x
+			w[o + 4] = b.x.y
+			w[o + 5] = b.y.y
+			w[o + 6] = b.z.y
+			w[o + 7] = p.y + lift
+			w[o + 8] = b.x.z
+			w[o + 9] = b.y.z
+			w[o + 10] = b.z.z
+			w[o + 11] = p.z
+			var col := t_color[t]
+			if burn_t[i] > 0.0:
+				col = col.lerp(burn_col, 0.5)
+			elif slow_t[i] > 0.0:
+				col = col.lerp(slow_col, 0.5)
+			if flash[i] > 0.0:
+				col = Color.WHITE
+			w[o + 12] = col.r
+			w[o + 13] = col.g
+			w[o + 14] = col.b
+			w[o + 15] = col.a
+			o += 16
+		type_counts[t] = members[t].size()
+		type_buffers[t] = w
 
 
-func upload_multimesh(multimesh: RID, target: Vector3) -> void:
-	if not multimesh.is_valid() or capacity == 0:
-		return
-	RenderingServer.multimesh_set_buffer(multimesh, get_multimesh_buffer(target))
+func upload_multimeshes(multimeshes: Array, target: Vector3) -> PackedInt32Array:
+	_fill_type_buffers(target)
+	for t in type_counts.size():
+		if t < multimeshes.size() and capacity > 0:
+			var rid: RID = multimeshes[t]
+			if rid.is_valid():
+				RenderingServer.multimesh_set_buffer(rid, type_buffers[t])
+	return type_counts.duplicate()
+
+
+func get_type_buffer(p_type: int, target: Vector3) -> PackedFloat32Array:
+	_fill_type_buffers(target)
+	if p_type < 0 or p_type >= type_buffers.size():
+		return PackedFloat32Array()
+	return type_buffers[p_type]

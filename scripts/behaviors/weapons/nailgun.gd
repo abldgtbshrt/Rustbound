@@ -79,4 +79,5 @@ func on_tick(delta: float) -> void:
 	robot.apply_recoil(-Vector3(dir.x, 0.0, dir.z) * recoil)
 	robot.add_heat(heat_per_shot)
 	shots_fired += 1
+	fired()
 	_cooldown = 1.0 / maxf(fire_rate, 0.01)

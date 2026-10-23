@@ -42,7 +42,9 @@ public:
 	void setup(int p_capacity, float p_cell_size, float p_arena_half_extent);
 	// One entry per enemy type. Cheap; EnemyManager calls it every step so
 	// runtime edits to EnemyData (speed, color...) take effect immediately.
-	void set_types(const PackedFloat32Array &p_radius, const PackedFloat32Array &p_speed, const PackedColorArray &p_color);
+	// model_scale[t] > 0: the type has an authored mesh (faces -Z, origin at
+	// its feet), drawn at that uniform scale. 0: the placeholder wedge.
+	void set_types(const PackedFloat32Array &p_radius, const PackedFloat32Array &p_speed, const PackedColorArray &p_color, const PackedFloat32Array &p_model_scale);
 	String backend_name() const { return "native"; }
 
 	// --- Rows ----------------------------------------------------------------
@@ -88,8 +90,12 @@ public:
 	PackedInt32Array get_contacts() const;
 	PackedVector3Array get_contact_dirs() const;
 	void resolve_contacts();
-	PackedFloat32Array get_multimesh_buffer(const Vector3 &p_target);
-	void upload_multimesh(const RID &p_multimesh, const Vector3 &p_target);
+	// One MultiMesh per enemy type (each can have its own model). Fills and
+	// uploads every type's buffer; returns how many instances each type has
+	// (set each MultiMesh's visible_instance_count to it).
+	PackedInt32Array upload_multimeshes(const Array &p_multimeshes, const Vector3 &p_target);
+	// The buffer upload_multimeshes() would send for one type (tests).
+	PackedFloat32Array get_type_buffer(int p_type, const Vector3 &p_target);
 
 protected:
 	static void _bind_methods();
@@ -117,6 +123,7 @@ private:
 	std::vector<float> t_radius, t_speed;
 	std::vector<Color> t_color;
 	std::vector<Basis> t_shape; // tip + scale applied after the look-at basis
+	std::vector<float> t_lift; // origin offset along Y (authored models sit on their feet)
 	float max_radius = 0.5f;
 
 	// Spatial grid (counting sort). Cells cover the arena plus one cell.
@@ -131,7 +138,9 @@ private:
 	std::vector<int> contacts;
 	std::vector<Vector3> contact_dirs, contact_push;
 	std::vector<int> kills;
-	PackedFloat32Array mm_buffer;
+	std::vector<PackedFloat32Array> type_buffers;
+	std::vector<int> type_counts;
+	void fill_type_buffers(const Vector3 &p_target);
 };
 
 } // namespace godot

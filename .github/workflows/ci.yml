@@ -1,18 +1,17 @@
-# Builds the native horde library (native/) for every platform and runs the
-# test suite against both horde backends.
+# Builds the native horde library (native/) for every platform, validates
+# assets, runs the test suite against both horde backends, and renders a
+# contact sheet of every part and enemy for review.
 #
-# - Pull requests / pushes touching native/: build + test, binaries uploaded
-#   as artifacts.
-# - Manual run (Actions > native > Run workflow): same, then commits the
+# - Every pull request and push to main: build, validate, test; binaries and
+#   the contact sheet are uploaded as artifacts.
+# - Manual run (Actions > ci > Run workflow): same, then commits the
 #   rebuilt binaries in bin/ back to the branch, so teammates just pull.
-name: native
+name: ci
 
 on:
   pull_request:
-    paths: ["native/**", "bin/**", "scripts/systems/**", "tests/**", ".github/workflows/native.yml"]
   push:
     branches: [main]
-    paths: ["native/**", "bin/**", "scripts/systems/**", "tests/**", ".github/workflows/native.yml"]
   workflow_dispatch:
 
 env:
@@ -59,13 +58,41 @@ jobs:
           unzip -q godot.zip
           mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
       - name: Import project
-        run: timeout 300 ./godot --headless --editor --quit || true
+        # --import, not --editor --quit: the latter can crash Godot 4.3 when a
+        # model imports while an editor plugin is enabled.
+        run: timeout 600 ./godot --headless --import
+      - name: Validate assets
+        run: timeout 300 ./godot --headless res://tools/pipeline/validate_assets.tscn
       - name: Tests (native horde)
         run: RUSTBOUND_HORDE_BACKEND=native timeout 900 ./godot --headless res://tests/run_tests.tscn
       - name: Tests (GDScript horde)
         run: RUSTBOUND_HORDE_BACKEND=gdscript timeout 900 ./godot --headless res://tests/run_tests.tscn
       - name: Benchmark
         run: BENCH_SIZES=600,1500 timeout 600 ./godot --headless res://tests/bench_horde.tscn | grep -E "^(backend|native|gdscript)"
+
+  contact-sheet:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: bin-linux
+          path: bin/linux/
+      - name: Install Godot and a virtual display
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q xvfb libgl1-mesa-dri
+          curl -sSL -o godot.zip https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 godot
+      - name: Render
+        run: |
+          timeout 600 ./godot --headless --import
+          timeout 300 xvfb-run -a ./godot --rendering-driver opengl3 res://tools/pipeline/contact_sheet.tscn -- --out=$PWD/contact_sheet.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: contact-sheet
+          path: contact_sheet.png
 
   commit-binaries:
     if: github.event_name == 'workflow_dispatch'

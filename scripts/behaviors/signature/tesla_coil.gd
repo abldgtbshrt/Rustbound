@@ -68,6 +68,7 @@ func on_tick(delta: float) -> void:
 		enemies.damage(i, dmg)
 	robot.add_heat(float(param("heat_per_zap", 1.5)) * robot.assembly.get_mod(part, "heat_mult"))
 	zaps += 1
+	fired()
 	_draw(points)
 	_cooldown = float(param("interval", 0.9)) / maxf(robot.assembly.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)
 

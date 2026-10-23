@@ -40,8 +40,9 @@ var last_step_usec: int = 0
 ## HordeSim (native) or HordeSimGD; both expose the same methods.
 var _sim: RefCounted
 var _spawn_accum := 0.0
-var _mm := MultiMesh.new()
-var _mm_instance := MultiMeshInstance3D.new()
+## One MultiMesh per enemy type, so each type can have its own model.
+var _mms: Array[MultiMesh] = []
+var _mm_rids: Array = []
 var _rng := RandomNumberGenerator.new()
 
 
@@ -52,18 +53,29 @@ func _ready() -> void:
 	_sim.setup(max_enemies, cell_size, arena_half_extent)
 	_sync_types()
 
-	var mesh := PrismMesh.new() # wedge-shaped scrap bugs
-	mesh.size = Vector3(1.0, 1.0, 1.0)
-	mesh.material = PartVisuals.material_for(Color.WHITE)
-	_mm.transform_format = MultiMesh.TRANSFORM_3D
-	_mm.use_colors = true
-	_mm.mesh = mesh
-	_mm.instance_count = max_enemies
-	_mm.visible_instance_count = 0
-	_mm_instance.multimesh = _mm
-	_mm_instance.name = "EnemyMultiMesh"
-	_mm_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(_mm_instance)
+	_build_multimeshes()
+
+
+func _build_multimeshes() -> void:
+	var wedge := PrismMesh.new() # placeholder: wedge-shaped scrap bugs
+	wedge.size = Vector3(1.0, 1.0, 1.0)
+	wedge.material = PartVisuals.material_for(Color.WHITE)
+	for t in enemy_types.size():
+		var data := enemy_types[t]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		var model := data.get_mesh()
+		mm.mesh = model if model != null else wedge
+		mm.instance_count = max_enemies
+		mm.visible_instance_count = 0
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.name = "Enemies_%s" % data.id
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+		_mms.append(mm)
+		_mm_rids.append(mm.get_rid())
 
 
 func _exit_tree() -> void:
@@ -237,11 +249,14 @@ func _sync_types() -> void:
 	var radius := PackedFloat32Array()
 	var speed := PackedFloat32Array()
 	var color := PackedColorArray()
+	var model_scale := PackedFloat32Array()
 	for t in enemy_types:
 		radius.append(t.radius)
 		speed.append(t.speed)
-		color.append(t.color)
-	_sim.set_types(radius, speed, color)
+		# Authored models carry their own colors; the tint only flashes them.
+		color.append(t.color if t.model == null else Color.WHITE)
+		model_scale.append(t.model_scale if t.model != null else 0.0)
+	_sim.set_types(radius, speed, color, model_scale)
 
 
 func _simulate(delta: float) -> void:
@@ -319,7 +334,8 @@ func _on_killed(i: int) -> void:
 
 
 func _update_multimesh() -> void:
-	_mm.visible_instance_count = count
 	var robot := RunState.robot
 	var target := robot.global_position if robot != null else Vector3.ZERO
-	_sim.upload_multimesh(_mm.get_rid(), target)
+	var counts: PackedInt32Array = _sim.upload_multimeshes(_mm_rids, target)
+	for t in _mms.size():
+		_mms[t].visible_instance_count = counts[t] if t < counts.size() else 0

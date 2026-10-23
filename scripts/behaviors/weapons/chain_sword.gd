@@ -52,6 +52,7 @@ func on_tick(delta: float) -> void:
 	if hit == 0:
 		return
 	swings += 1
+	fired()
 	robot.add_heat(float(param("heat_per_swing", 2.0)) * asm.get_mod(part, "heat_mult"))
 	_cooldown = swing_time
 	_anim = 0.0

@@ -3,7 +3,8 @@ extends CanvasLayer
 
 ## Run HUD: HP / XP, run stats, and the build budgets (power, heat, CPU, mass,
 ## tilt) as bars, so overloading on purpose is a readable choice.
-## F3 toggles the detailed physics readout.
+## F3 toggles the detailed readout: performance (frame, physics and per-system
+## ms, entity counts, draw calls) and the robot's physics.
 
 const MESSAGE_TIME := 3.0
 
@@ -211,11 +212,24 @@ func _process(delta: float) -> void:
 	_hint.text = ("[Tab] build  -  %d part(s) on bench%s" % [bench, ("  (%d new)" % fresh) if fresh > 0 else ""]) if bench > 0 and not building else ""
 
 	if _debug.visible:
+		var em := RunState.enemies
+		var pp := RunState.projectiles
+		var pk := RunState.pickups
+		var perf := "FPS %d   frame %.1f ms   physics %.1f ms   horde[%s] %.2f ms (%d)   shots %.2f ms (%d)   pickups %.2f ms (%d)   draws %d" % [
+			Engine.get_frames_per_second(),
+			Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			em.backend_name() if em != null else "-", em.last_step_usec / 1000.0 if em != null else 0.0, em.count if em != null else 0,
+			pp.last_step_usec / 1000.0 if pp != null else 0.0, pp.count if pp != null else 0,
+			pk.last_step_usec / 1000.0 if pk != null else 0.0, pk.scrap_count if pk != null else 0,
+			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		]
 		var loco := "%s, %d part(s)%s" % [prof.mode_name(), prof.part_count, (" [" + prof.conflict + "]") if prof.conflict != "" else ""]
 		_debug.text = "\n".join([
+			perf,
 			"parts %d   locomotion %s   speed %.1f m/s   grip %.2f   jump %s" % [a.part_count, loco, robot.get_top_speed(), prof.grip, ("%.1f" % prof.jump_force) if prof.can_jump else "no"],
 			"CoM h %.2f side %+.2f   footprint %.2f   height %.2f   gyro +%d%%" % [a.center_of_mass.y, a.center_of_mass.x, a.footprint, a.height, int(a.stability * 100.0)],
-			"heat +%.1f/s passive, -%.1f/s cooling (incl. airflow)   FPS %d" % [a.heat_passive, robot.get_heat_dissipation(), Engine.get_frames_per_second()],
+			"heat +%.1f/s passive, -%.1f/s cooling (incl. airflow)" % [a.heat_passive, robot.get_heat_dissipation()],
 			"power %.0f gen / %.0f draw   battery %.0f / %.0f   jets %.0f thrust (%.1f lift)" % [a.power_gen, a.power_draw, robot.energy, robot.get_energy_capacity(), a.jet_thrust, a.jet_thrust / robot.get_mass()],
 		])
 

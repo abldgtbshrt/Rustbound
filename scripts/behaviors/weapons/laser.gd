@@ -64,6 +64,7 @@ func on_tick(delta: float) -> void:
 		lines.append([origin, origin + d * reach])
 	robot.add_heat(float(param("heat_per_shot", 8.0)) * asm.get_mod(part, "heat_mult"))
 	shots += 1
+	fired()
 	_draw(lines)
 
 

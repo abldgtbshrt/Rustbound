@@ -82,6 +82,7 @@ func on_tick(delta: float) -> void:
 		enemies.damage(i, dmg)
 		enemies.apply_hit_fx(i, fx)
 	ticks += 1
+	fired()
 
 
 func _draw_cone(on: bool, reach: float, arc: float) -> void:

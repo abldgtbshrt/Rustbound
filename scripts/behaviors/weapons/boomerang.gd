@@ -41,6 +41,7 @@ func on_tick(delta: float) -> void:
 		var side := 1.0 if k % 2 == 0 else -1.0
 		_throw(fwd, side)
 	throws += 1
+	fired()
 	robot.add_heat(float(param("heat_per_throw", 2.0)) * robot.assembly.get_mod(part, "heat_mult"))
 	_cooldown = float(param("interval", 2.2)) / maxf(robot.assembly.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)
 

@@ -53,6 +53,7 @@ func on_tick(delta: float) -> void:
 	robot.add_heat(float(param("heat_per_shot", 4.0)) * robot.assembly.get_mod(part, "heat_mult"))
 	robot.apply_recoil(-fwd * 1.5)
 	shots += 1
+	fired()
 	_cooldown = float(param("interval", 1.6)) / maxf(robot.assembly.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)
 
 

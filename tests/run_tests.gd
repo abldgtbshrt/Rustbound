@@ -45,9 +45,14 @@ func _run() -> void:
 	_test_drive_balance()
 	await _test_bench_pickups()
 	await _test_chassis_select()
+	await _test_settings_pause_audio()
+	_test_asset_pipeline()
 	await _bench_horde()
 	print("")
 	print("%d checks, %d failed" % [_checks, _failures])
+	Sfx.stop_all() # let the audio server drop its playbacks before exit
+	for f in 3:
+		await get_tree().process_frame
 	get_tree().quit(1 if _failures > 0 else 0)
 
 
@@ -1441,6 +1446,160 @@ func _test_chassis_select() -> void:
 		await get_tree().process_frame
 
 
+## Settings, the pause menu, the F3 perf readout and sound effects.
+func _test_settings_pause_audio() -> void:
+	print("settings, pause menu, perf overlay, sfx")
+	var settings: Node = get_node("/root/Settings")
+	var sfx: Node = get_node("/root/Sfx")
+	settings.persist = false # never touch the real settings file
+
+	# Settings apply immediately.
+	var sfx_bus := AudioServer.get_bus_index("SFX")
+	check(sfx_bus >= 0 and AudioServer.get_bus_index("Music") >= 0 and AudioServer.get_bus_index("UI") >= 0, "audio buses: Music, SFX, UI")
+	settings.set_value("volume_sfx", 0.5)
+	check(is_equal_approx(AudioServer.get_bus_volume_db(sfx_bus), linear_to_db(0.5)), "effects volume drives the SFX bus (%.1f dB)" % AudioServer.get_bus_volume_db(sfx_bus))
+	settings.set_value("volume_sfx", 0.0)
+	check(AudioServer.is_bus_mute(sfx_bus), "volume 0 mutes the bus")
+	settings.reset_to_defaults()
+	check(not AudioServer.is_bus_mute(sfx_bus) and settings.get_value("ps2_filter") == true, "defaults restore")
+
+	var main: Node = await _open_main()
+	var container: SubViewportContainer = main.get_node("Screen")
+	settings.set_value("ps2_filter", false)
+	check(container.stretch_shrink == 1, "turning the PS2 filter off in settings applies at once")
+	settings.set_value("ps2_filter", true)
+
+	# Pause menu.
+	var pause: PauseMenu = main.get_node("PauseMenu")
+	pause.open()
+	check(pause.is_open() and get_tree().paused, "Esc menu opens and pauses")
+	pause.toggle()
+	check(not pause.is_open() and not get_tree().paused, "Esc again resumes")
+	var lvl: LevelUpScreen = main.get_node("LevelUpScreen")
+	rs.add_xp(rs.xp_to_next())
+	await get_tree().process_frame
+	pause.open()
+	check(lvl.is_open() and not pause.is_open(), "pause menu stays out of the level-up screen's way")
+	lvl.choose(-1)
+	check(not get_tree().paused, "level-up still unpauses afterwards")
+
+	# F3 readout includes performance.
+	var hud: Hud = main.get_node("HUD")
+	hud._debug.visible = true
+	await get_tree().process_frame
+	check(hud._debug.text.contains("horde[") and hud._debug.text.contains("FPS"), "F3 readout shows frame, physics and horde timings")
+	check(rs.enemies.last_step_usec >= 0 and rs.projectiles.last_step_usec >= 0 and rs.pickups.last_step_usec >= 0 and rs.enemies.backend_name() != "", "systems report their step time (horde %d us, %s)" % [rs.enemies.last_step_usec, rs.enemies.backend_name()])
+	hud._debug.visible = false
+
+	# Sounds: caps, gaps, fallbacks.
+	check(sfx.has_sound(&"enemy_die") and sfx.has_sound(&"fire_gun_nail"), "placeholder sounds are present")
+	check(not sfx.play(&"no_such_sound"), "a missing sound is silent, not an error")
+	sfx.stop_all()
+	var played0: int = sfx.played
+	var started := 0
+	for k in 10:
+		started += 1 if sfx.play(&"part_pickup") else 0
+	check(started == 1 and sfx.played == played0 + 1, "a sound can't restart inside its minimum gap (%d started)" % started)
+	check(sfx.play_weapon(&"gun_nail") and sfx.last_id == &"fire_gun_nail", "weapons play fire_<part id>")
+	check(sfx.play_weapon(&"made_up_gun") and sfx.last_id == &"fire_default", "unknown weapons fall back to fire_default")
+	var dropped0: int = sfx.dropped
+	sfx.stop_all()
+	var enemy_starts := 0
+	for k in 12:
+		sfx._last_start.erase(&"enemy_die") # isolate the voice cap from the gap
+		enemy_starts += 1 if sfx.play(&"enemy_die") else 0
+	check(enemy_starts == 4 and sfx.dropped == dropped0 + 8, "a burst of kills is capped at 4 voices (%d played)" % enemy_starts)
+	sfx.stop_all()
+	var fired0: int = sfx.played
+	EventBus.weapon_fired.emit(&"gun_laser", Vector3.ZERO)
+	check(sfx.played == fired0 + 1 and sfx.last_id == &"fire_gun_laser", "weapon_fired events make sound")
+	sfx.stop_all()
+	main.queue_free()
+	await get_tree().process_frame
+	settings.persist = true
+
+
+## The art contract: import processing, the validator, enemy models.
+func _test_asset_pipeline() -> void:
+	print("asset pipeline")
+	var report := AssetValidator.validate_all()
+	check(report["errors"].is_empty(), "all shipped assets pass validation (%d checked)\n%s" % [report["checked"], AssetValidator.format_report(report)] if not report["errors"].is_empty() else "all shipped assets pass validation (%d checked, %d warnings)" % [report["checked"], report["warnings"].size()])
+
+	# The reference turret went through the importer: markers + PS2 materials.
+	var turret := load("res://assets/parts/_examples/example_turret/example_turret.glb") as PackedScene
+	check(turret != null, "example turret imported")
+	var t_root := turret.instantiate() as Node3D
+	var stats := AssetValidator.measure(t_root)
+	var mat: Material = null
+	for c in t_root.get_children():
+		if c is MeshInstance3D:
+			mat = (c as MeshInstance3D).mesh.surface_get_material(0)
+	check(stats["markers"].has("muzzle") and stats["markers"].has("top"), "Socket_ empties became markers")
+	var muzzle := t_root.get_node_or_null("muzzle") as Node3D
+	check(muzzle != null and muzzle.position.z < -0.5, "the model was turned to face -Z (muzzle z=%.2f)" % (muzzle.position.z if muzzle != null else 0.0))
+	check(mat is ShaderMaterial and (mat as ShaderMaterial).shader == preload("res://shaders/ps2_vertex.gdshader") and (mat as ShaderMaterial).get_shader_parameter("albedo_tex") != null, "surfaces got the PS2 material with their texture")
+	t_root.free()
+
+	var p := PartData.new()
+	p.id = &"test_turret"
+	p.scene = turret
+	p.sockets = [SocketDef.make(&"muzzle", 1, Vector3.ZERO), SocketDef.make(&"top", 1, Vector3.ZERO)]
+	var r := AssetValidator.validate_part(p)
+	check(r["errors"].is_empty() and r["warnings"].is_empty(), "example turret meets the contract %s" % [r["errors"] + r["warnings"]])
+	p.sockets.append(SocketDef.make(&"side", 1, Vector3.ZERO))
+	r = AssetValidator.validate_part(p)
+	check(r["errors"].size() == 1 and String(r["errors"][0]).contains("Socket_side"), "a socket without a marker is an error")
+
+	# Budgets: a 2,000-triangle part and a 256 px texture fail.
+	var heavy_root := Node3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radial_segments = 64
+	sphere.rings = 32
+	var img := Image.create(256, 256, false, Image.FORMAT_RGB8)
+	var smat := StandardMaterial3D.new()
+	smat.albedo_texture = ImageTexture.create_from_image(img)
+	sphere.material = smat
+	var mi := MeshInstance3D.new()
+	mi.mesh = sphere
+	heavy_root.add_child(mi)
+	mi.owner = heavy_root
+	var heavy := PackedScene.new()
+	heavy.pack(heavy_root)
+	heavy_root.free()
+	var hp := PartData.new()
+	hp.id = &"test_heavy"
+	hp.scene = heavy
+	r = AssetValidator.validate_part(hp)
+	var msgs := " ".join(r["errors"])
+	check(msgs.contains("triangles") and msgs.contains("256x256"), "over-budget triangles and textures are errors")
+
+	# Import processing on a hand-built scene (same code the importer runs).
+	var raw := Node3D.new()
+	var sock := Node3D.new()
+	sock.name = "Socket_grip"
+	sock.position = Vector3(0, 0.3, 0)
+	raw.add_child(sock)
+	var box := MeshInstance3D.new()
+	box.mesh = BoxMesh.new()
+	raw.add_child(box)
+	preload("res://addons/rustbound_pipeline/ps2_scene_import.gd").process(raw)
+	var grip := raw.get_node_or_null("grip")
+	check(grip is Marker3D and is_equal_approx((grip as Marker3D).position.y, 0.3), "importer turns Socket_grip into a Marker3D named grip")
+	check(box.mesh.surface_get_material(0) is ShaderMaterial, "importer applies the PS2 material")
+	raw.free()
+
+	# Enemy models: every mesh merged into one for the MultiMesh.
+	var e := EnemyData.new()
+	e.id = &"test_bug"
+	e.radius = 0.4
+	e.model = load("res://assets/enemies/_examples/example_bug/example_bug.glb")
+	var mesh := e.get_mesh()
+	check(mesh != null and mesh.get_surface_count() == 1 and mesh.get_faces().size() / 3 == 24, "example bug's two boxes merge into one mesh (%d tris)" % (mesh.get_faces().size() / 3 if mesh != null else -1))
+	check(e.get_mesh() == mesh, "merged meshes are cached")
+	r = AssetValidator.validate_enemy(e)
+	check(r["errors"].is_empty() and r["warnings"].is_empty(), "example bug meets the contract %s" % [r["errors"] + r["warnings"]])
+
+
 ## Both horde backends must behave the same. Runs the GDScript twin and the
 ## native HordeSim side by side on identical input and compares them. The
 ## same checks also run against whichever backend is active (GDScript only
@@ -1455,10 +1614,11 @@ func _test_horde_backends() -> void:
 	var radius := PackedFloat32Array([0.35, 0.3, 0.8])
 	var speed := PackedFloat32Array([3.4, 5.0, 2.2])
 	var color := PackedColorArray([Color(0.8, 0.3, 0.2), Color(0.9, 0.8, 0.2), Color(0.5, 0.3, 0.6)])
+	var model_scale := PackedFloat32Array([0.0, 0.0, 1.5]) # type 2 pretends to have a model
 	var hp0 := [16.0, 8.0, 70.0]
 	for sim in sims:
 		sim.setup(400, 2.0, 58.0)
-		sim.set_types(radius, speed, color)
+		sim.set_types(radius, speed, color, model_scale)
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1234
 		for i in 300:
@@ -1489,6 +1649,19 @@ func _test_horde_backends() -> void:
 		var cone: int = sim.find_nearest(Vector3.ZERO, 40.0, Vector3.RIGHT, cos(deg_to_rad(20.0)))
 		var cp: Vector3 = sim.get_pos(cone)
 		check(cone < 0 or Vector2(cp.x, cp.z).normalized().dot(Vector2.RIGHT) >= cos(deg_to_rad(20.0)) - 0.001, "%s: find_nearest respects the cone" % tag)
+
+	# Rendering: one buffer per type; models sit on their feet.
+	for sim in sims:
+		var tag: String = sim.backend_name()
+		var counts: PackedInt32Array = sim.upload_multimeshes([], Vector3.ZERO)
+		check(counts.size() == 3 and counts[0] + counts[1] + counts[2] == sim.get_count(), "%s: per-type instance counts add up (%s)" % [tag, counts])
+		var buf2: PackedFloat32Array = sim.get_type_buffer(2, Vector3.ZERO)
+		var first2 := -1
+		for i in sim.get_count():
+			if sim.get_type(i) == 2:
+				first2 = i
+				break
+		check(first2 >= 0 and is_equal_approx(buf2[7], sim.get_pos(first2).y - 0.8) and is_equal_approx(buf2[3], sim.get_pos(first2).x), "%s: authored models are placed at their feet" % tag)
 
 	# Simulate both for a second with a moving target and compare.
 	var contacts := []
@@ -1535,12 +1708,15 @@ func _test_horde_backends() -> void:
 	a.compact()
 	b.compact()
 	check(a.get_count() == b.get_count(), "parity: compact leaves %d" % a.get_count())
-	var ba: PackedFloat32Array = a.get_multimesh_buffer(Vector3.ZERO)
-	var bb: PackedFloat32Array = b.get_multimesh_buffer(Vector3.ZERO)
 	var max_db := 0.0
-	for k in a.get_count() * 16:
-		max_db = maxf(max_db, absf(ba[k] - bb[k]))
-	check(ba.size() == bb.size() and max_db < 0.01, "parity: MultiMesh buffers agree (%.5f)" % max_db)
+	var sizes_ok := true
+	for t in 3:
+		var ba: PackedFloat32Array = a.get_type_buffer(t, Vector3.ZERO)
+		var bb: PackedFloat32Array = b.get_type_buffer(t, Vector3.ZERO)
+		sizes_ok = sizes_ok and ba.size() == bb.size() and ba.size() == 400 * 16
+		for k in a.get_count() * 16:
+			max_db = maxf(max_db, absf(ba[k] - bb[k]))
+	check(sizes_ok and max_db < 0.01, "parity: per-type MultiMesh buffers agree (%.5f)" % max_db)
 
 
 ## Informational: average frame cost with a full horde (not a pass/fail check,
