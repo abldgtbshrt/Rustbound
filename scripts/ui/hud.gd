@@ -207,7 +207,8 @@ func _process(delta: float) -> void:
 
 	var bench := RunState.inventory.size()
 	var building := Engine.time_scale < 0.99 or (get_tree().paused and RunState.pending_levelups == 0)
-	_hint.text = ("[Tab] build  -  %d part(s) on bench" % bench) if bench > 0 and not building else ""
+	var fresh := RunState.new_count()
+	_hint.text = ("[Tab] build  -  %d part(s) on bench%s" % [bench, ("  (%d new)" % fresh) if fresh > 0 else ""]) if bench > 0 and not building else ""
 
 	if _debug.visible:
 		var loco := "%s, %d part(s)%s" % [prof.mode_name(), prof.part_count, (" [" + prof.conflict + "]") if prof.conflict != "" else ""]

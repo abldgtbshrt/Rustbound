@@ -3,8 +3,7 @@ extends Node3D
 
 ## Scrap gems (many, MultiMesh, magnet-pulled) and part pickups (few, real
 ## nodes you have to walk over, so you can choose to skip a part).
-## Parts go through RunState.acquire_part: duplicates upgrade, else
-## auto-install, else bench, else scrap.
+## Parts go through RunState.acquire_part and land on the bench.
 
 @export var max_scrap: int = 1000
 @export var collect_radius: float = 0.8
@@ -171,9 +170,9 @@ func _update_parts(delta: float, robot: RobotController) -> void:
 
 
 func _collect_part(data: PartData, _robot: RobotController) -> void:
-	# Walking over a part you already own upgrades it (duplicates merge);
-	# anything new goes to the bench to be placed by hand in build mode.
-	var result := RunState.acquire_part(data, false, true)
+	# Everything you walk over goes to the bench, duplicates included (they
+	# can be melted into an upgrade there). Placed by hand in build mode.
+	var result := RunState.acquire_part(data, false, false)
 	EventBus.part_picked_up.emit(data, result == RunState.Acquired.ATTACHED)
 
 

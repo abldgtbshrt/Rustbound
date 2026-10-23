@@ -16,6 +16,7 @@ var _detail_title: Label
 var _detail: Label
 var _detach_btn: Button
 var _scrap_btn: Button
+var _melt_btn: Button
 var _auto_check: CheckBox
 var _mirror_check: CheckBox
 var _rot_label: Label
@@ -111,6 +112,13 @@ func _build_ui() -> void:
 	rot_row.add_child(_scrap_btn)
 	col.add_child(rot_row)
 
+	_melt_btn = UiStyle.button("Melt into upgrade", 12)
+	_melt_btn.pressed.connect(func() -> void:
+		var i := build_mode.selected_bench
+		if RunState.melt_into_upgrade(i):
+			build_mode.select_bench(-1))
+	col.add_child(_melt_btn)
+
 	var row2 := HBoxContainer.new()
 	var strip := UiStyle.button("Strip to chassis", 12)
 	strip.pressed.connect(func() -> void: build_mode.strip_all())
@@ -136,14 +144,18 @@ func _refresh() -> void:
 		return
 	var asm: RobotAssembly = RunState.robot.assembly if RunState.robot != null else null
 
-	# Tab labels with counts.
+	# Tab labels with counts; a * marks tabs holding new pickups.
 	for i in UiStyle.GROUPS.size():
 		var g: String = UiStyle.GROUPS[i]
 		var n := 0
-		for p in RunState.inventory:
+		var fresh := false
+		for k in RunState.inventory.size():
+			var p := RunState.inventory[k]
 			if g == "All" or UiStyle.part_group(p) == g:
 				n += 1
-		_tabs.set_tab_title(i, "%s %d" % [g, n] if n > 0 else g)
+				fresh = fresh or RunState.is_new(k)
+		var title := ("%s %d" % [g, n]) if n > 0 else g
+		_tabs.set_tab_title(i, title + ("*" if fresh else ""))
 
 	for c in _list.get_children():
 		c.queue_free()
@@ -155,7 +167,7 @@ func _refresh() -> void:
 		shown += 1
 		var t := RunState.get_tier(p.id)
 		var fits := build_mode.get_compatible_sockets(p).size()
-		var b := UiStyle.button("%s%s%s   %s" % [p.get_display_name(), ("  " + PartData.tier_name(t)) if t > 1 else "",
+		var b := UiStyle.button("%s%s%s%s   %s" % ["NEW  " if RunState.is_new(i) else "", p.get_display_name(), ("  " + PartData.tier_name(t)) if t > 1 else "",
 			"  (pair)" if p.paired else "", "" if fits > 0 else "- no free socket"], 13)
 		b.toggle_mode = true
 		b.button_pressed = i == build_mode.selected_bench
@@ -209,6 +221,13 @@ func _refresh() -> void:
 	_detach_btn.disabled = not on_robot or locked
 	_scrap_btn.disabled = sel_data == null or locked
 	_scrap_btn.text = "Scrap +%d" % sel_data.scrap_value if sel_data != null else "Scrap"
+	var melt_why := RunState.melt_block_reason(build_mode.selected_bench) if not on_robot else "select a spare copy on the bench"
+	_melt_btn.disabled = melt_why != ""
+	if sel_data != null and not on_robot and melt_why == "":
+		var t := RunState.get_tier(sel_data.id)
+		_melt_btn.text = "Melt spare into upgrade: %s -> %s" % [PartData.tier_name(t), PartData.tier_name(t + 1)]
+	else:
+		_melt_btn.text = "Melt into upgrade (%s)" % melt_why
 	_auto_check.set_pressed_no_signal(RunState.auto_install)
 	_mirror_check.set_pressed_no_signal(build_mode.mirror)
 	if asm != null:
