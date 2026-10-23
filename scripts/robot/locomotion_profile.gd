@@ -10,15 +10,17 @@ extends RefCounted
 ##   TANK     treads         pivots in place, slow, crushes, can't be pushed
 ##   SKATER   legs + wheels on their feet: glides on momentum, jumps, stomps, rams
 ##   STOMPER  legs + treads on their feet: heavy walker, big stomps, crushes
+##   HOVER    hover pads     floats, slides, strafes in any direction while
+##                           facing the nearest enemy; pads burn power
 ##   BALL     nothing: the core rolls
 ##
 ## Hybrids only happen through a leg's foot socket. Different drive types
 ## mounted directly on the frame conflict: the majority type drives, the rest
 ## sit idle (dead weight) and build mode says so.
 
-enum Mode { BALL, WALKER, ROVER, TANK, SKATER, STOMPER }
+enum Mode { BALL, WALKER, ROVER, TANK, SKATER, STOMPER, HOVER }
 
-const MODE_NAMES := ["Ball", "Walker", "Rover", "Tank", "Skater", "Stomper"]
+const MODE_NAMES := ["Ball", "Walker", "Rover", "Tank", "Skater", "Stomper", "Hover"]
 
 var mode: Mode = Mode.BALL
 var top_speed: float = 4.0
@@ -39,6 +41,10 @@ var leg_count: int = 0
 var stomp: float = 0.0
 var ram: float = 0.0
 var crush: float = 0.0
+## Height the robot floats at (hover only).
+var hover_height: float = 0.0
+## Locomotion parts actually driving (incl. boots on legs).
+var active_parts: Array[PartInstance] = []
 ## Locomotion parts not driving (conflicting drive types).
 var idle_parts: Array[PartInstance] = []
 ## Human-readable reason, e.g. "2 Scrap Wheel idle: legs drive".
@@ -82,7 +88,7 @@ static func resolve(entries: Array, center_of_mass: Vector3) -> LocomotionProfil
 	# Majority drive type wins; ties prefer legs, then treads, then wheels.
 	var winner := -1
 	var best := -1
-	for kind in [PartData.Drive.LEG, PartData.Drive.TREAD, PartData.Drive.WHEEL]:
+	for kind in [PartData.Drive.LEG, PartData.Drive.TREAD, PartData.Drive.WHEEL, PartData.Drive.HOVER]:
 		var n: int = (frame.get(kind, []) as Array).size()
 		if n > best:
 			best = n
@@ -96,6 +102,8 @@ static func resolve(entries: Array, center_of_mass: Vector3) -> LocomotionProfil
 			var nm: String = (e[0] as PartInstance).data.get_display_name()
 			idle_names[nm] = int(idle_names.get(nm, 0)) + 1
 	var active: Array = frame[winner]
+	for e in active:
+		prof.active_parts.append(e[0])
 
 	prof.is_ball = false
 	prof.part_count = active.size()
@@ -110,10 +118,14 @@ static func resolve(entries: Array, center_of_mass: Vector3) -> LocomotionProfil
 			var half := ceili(active.size() / 2.0)
 			if wheels.size() >= half and wheels.size() >= treads.size():
 				_skater(prof, wheels)
+				for e in wheels:
+					prof.active_parts.append(e[0])
 				for e in treads:
 					prof.idle_parts.append(e[0])
 			elif treads.size() >= half:
 				_stomper(prof, treads)
+				for e in treads:
+					prof.active_parts.append(e[0])
 				for e in wheels:
 					prof.idle_parts.append(e[0])
 			else:
@@ -124,12 +136,14 @@ static func resolve(entries: Array, center_of_mass: Vector3) -> LocomotionProfil
 			_rover(prof, active)
 		PartData.Drive.TREAD:
 			_tank(prof, active)
+		PartData.Drive.HOVER:
+			_hover(prof, active)
 
 	if not idle_names.is_empty():
 		var parts: PackedStringArray = []
 		for nm in idle_names.keys():
 			parts.append("%d %s" % [idle_names[nm], nm])
-		prof.conflict = "%s idle: %s drive" % [", ".join(parts), ["", "legs", "wheels", "treads"][winner]]
+		prof.conflict = "%s idle: %s drive" % [", ".join(parts), ["", "legs", "wheels", "treads", "hover pads"][winner]]
 	return prof
 
 
@@ -216,6 +230,17 @@ static func _rover(prof: LocomotionProfile, _active: Array) -> void:
 	prof.coast_drag = 0.6
 	prof.jump_force = 0.0
 	prof.can_jump = false
+
+
+static func _hover(prof: LocomotionProfile, active: Array) -> void:
+	prof.mode = Mode.HOVER
+	prof.coast_drag = 0.5
+	prof.jump_force = 0.0
+	prof.can_jump = false
+	var h := 0.0
+	for e in active:
+		h = maxf(h, float((e[0] as PartInstance).data.params.get("hover_height", 0.5)))
+	prof.hover_height = h
 
 
 static func _tank(prof: LocomotionProfile, _active: Array) -> void:

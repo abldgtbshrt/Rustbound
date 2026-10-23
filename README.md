@@ -24,6 +24,8 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
   - **Tank** (treads): pivots in place until facing where you want, then rolls; slow, crushes, can't be pushed.
   - **Skater** (wheels on legs' feet): glides on momentum, jumps, stomps *and* rams.
   - **Stomper** (treads on legs' feet): slower, anchored, 1.5x stomps, crushes.
+  - **Hover** (hover pads, rare): floats 0.5 m up, slides with almost no friction, strafes in any direction while turning to face the nearest enemy. Pads draw 2 power each; in a brownout they lose most of their thrust.
+  - **Drivetrains come in pairs**: one Legs / Wheels / Treads / Hover Pads item places a mirrored pair (left + right); detaching either side benches the pair. Add more pairs for 4 or 6. Wheels or treads on leg feet go on as a pair too.
   - Hybrids only happen through a leg's **foot** socket. Different drive types bolted directly to the frame conflict: the majority drives, the rest sit idle, and the HUD and build panel say so.
 - **Energy**: power generation minus draw charges a battery (40 + Battery Packs). With the battery full, spare power **overcharges** weapons (up to +50% fire rate). Draw more than you generate and the battery drains; when it's empty you **brown out**: weapons stall and movement drops to 70%. Reactors and batteries fit Internal *or* Mount sockets.
 - **Jump Jets**: hold Space in the air to thrust (lift = total jet thrust / mass, gravity is 20), burning 10 energy/s per jet. Two jets on the starter lift it ~10 m; heavy robots need more. Robots without legs can take off on jets alone. Higher falls also mean bigger leg stomps.
@@ -36,6 +38,16 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 - **Upgrades**: each part's `upgrade_per_tier` says what grows per Mk (damage, fire rate, thrust, armor, battery...). Walking over a part you already own upgrades it instead of adding a copy; new copies come from level-up cards.
 - **Fewer, more special parts**: part drops are rare (brutes 5%, small enemies ~0.3%) and new-part cards start at 8% per card. Parts have a **rarity** (Common / Rare / Legendary, colored on cards, beams and the bench).
 - **Signature parts** (one per run each): **Magnet Arm** (drags small enemies and scrap in), **Tesla Coil** (chain lightning through 5 enemies), **Mortar** (lobs shells into the densest crowd 6-20 m away), **Shield Projector** (legendary: hits from its arc drain battery instead of HP, shoves enemies back), **Scrap Maw** (bites what's in front, eats scrap to repair).
+- **More weapons**:
+  - **Flamethrower** (common): 5 m, 50° cone of fire in bursts (1.2 s on, 0.8 s off), 40 dps to everything in it.
+  - **Boomerang Launcher** (common): throws a blade on a 9 m loop that hits on the way out and back.
+  - **Lance Laser** (rare): charges 2.5 s, then a 22 m beam hits every enemy in the line for 45.
+  - **Drone Bay** (rare): a little bot orbits you and shoots the nearest enemy.
+- **Upgrade paths**: reaching **Mk III** is a fork. The level-up shows both branches side by side and you keep one for the run:
+  - Nailgun: Shrapnel (splash) / Cryo Nails (slow). Rivet Cannon: Explosive / Concussion. Chain Sword: Searing (burn) / Hamstring (slow).
+  - Flamethrower: Napalm (burn) / Wide Nozzle. Boomerang: Twin Blades / Razor Wind (slow). Laser: Prism (3 beams) / Burning Beam. Drone Bay: Swarm (2nd drone) / Repair Drones.
+  - Drivetrains leave **trails**: fire (burns enemies who walk through) or oil / static (slows them to ~45%). Legs: Scorched Steps / Hydraulic Leak. Wheels: Burnout / Oil Slick. Treads: Exhaust Fire / Sludge Treads. Hover: Thermal Wake / Static Field.
+  - Enemies show status: orange = burning, blue = slowed.
 - **Pickups go to the bench**: overworld parts are never auto-attached; place them in build mode. Level-up parts still auto-install (toggle in build mode).
 - **The bench**: new parts auto-install on the most balanced free socket (toggle in build mode); otherwise they go to an 8-slot bench, and overflow is scrapped.
 - **Build mode** (Tab): the world pauses (set `BuildMode.pause_world` off to go back to 10% slow motion) and the camera moves in. **Strip to core** sends every part to the bench to rebuild from scratch; detached parts always fit on the bench. Free sockets show as colored dots (gray structural, orange mount, cyan internal, green locomotion); pick a bench part and only the sockets it fits remain. Hover one to see a ghost, Q/E to rotate, click to attach. **M** toggles mirror placement (a second bench copy goes on the mirrored cell, mirrored; rotating a part also turns its twin). Click a part on the robot to rotate, detach (to bench, with everything on it) or scrap it. Overlays: center of mass (pink), footprint (green), links (cyan), weapon arcs (orange), armor arcs (blue).
@@ -74,7 +86,7 @@ Weapons fire on their own.
 godot --headless --fixed-fps 60 res://tests/run_tests.tscn
 ```
 
-165 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, and a 600-enemy benchmark. Exit code is non-zero on failure.
+196 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, and a 600-enemy benchmark. Exit code is non-zero on failure.
 
 ## Content
 
@@ -93,8 +105,8 @@ scenes/main.tscn   root: low-res game viewport + UI layers
 scenes/levels/     prototype_arena.tscn (3D only; run main.tscn to play)
 scripts/data/      PartData, SocketDef, EnemyData
 scripts/robot/     RobotAssembly, PartInstance, RobotController, LocomotionProfile, CameraRig, PartVisuals, BuildMode
-scripts/behaviors/ PartBehavior, weapons/ (nailgun, chain_sword), utility/ (rotator, jet), signature/ (magnet, tesla, mortar, shield, maw)
-scripts/systems/   EnemyManager, ProjectilePool, PickupManager
+scripts/behaviors/ PartBehavior, weapons/ (nailgun, chain_sword, flamethrower, boomerang, laser, drone_bay), utility/ (rotator, jet), signature/ (magnet, tesla, mortar, shield, maw)
+scripts/systems/   EnemyManager (incl. slow/burn), ProjectilePool, PickupManager, HazardField (trails), UpgradeOffers
 scripts/ui/        Hud, LevelUpScreen, BuildPanel, UiStyle
 shaders/           ps2_vertex (wobble), ps2_post (dither + quantize)
 tests/             run_tests.tscn

@@ -125,6 +125,9 @@ func _parts() -> Array[PartData]:
 	leg.drop_weight = 1.0
 	leg.tags = PackedStringArray(["leg"])
 	leg.drive = PartData.Drive.LEG
+	leg.paired = true
+	leg.display_name = "Biped Legs"
+	leg.paths = [{"id": "fire", "name": "Scorched Steps", "desc": "Leaves a trail of burning ground that sets enemies alight.", "params": {"trail": "fire", "trail_strength": 10.0, "trail_radius": 1.1, "trail_life": 4.0}}, {"id": "oil", "name": "Hydraulic Leak", "desc": "Leaves an oil slick that slows enemies to 45% speed.", "params": {"trail": "oil", "trail_strength": 0.45, "trail_radius": 1.3, "trail_life": 6.0}}]
 	leg.params = {"stomp": 1.0} # slam on landing
 	_vis(leg, PartData.VisualShape.BOX, Vector3(0.25, 0.8, 0.45), Vector3(0, -0.4, 0), Color(0.4, 0.45, 0.5))
 	# The foot takes a wheel (Skater) or a tread (Stomper): deliberate hybrids.
@@ -147,6 +150,9 @@ func _parts() -> Array[PartData]:
 	wheel.drop_weight = 0.9
 	wheel.params = {"ram": 0.5} # ram damage scales with speed
 	wheel.drive = PartData.Drive.WHEEL
+	wheel.paired = true
+	wheel.display_name = "Scrap Wheels"
+	wheel.paths = [{"id": "fire", "name": "Burnout", "desc": "Leaves a trail of burning ground that sets enemies alight.", "params": {"trail": "fire", "trail_strength": 10.0, "trail_radius": 1.1, "trail_life": 4.0}}, {"id": "oil", "name": "Oil Slick", "desc": "Leaves an oil slick that slows enemies to 45% speed.", "params": {"trail": "oil", "trail_strength": 0.45, "trail_radius": 1.3, "trail_life": 6.0}}]
 	_vis(wheel, PartData.VisualShape.CYLINDER, Vector3(0.8, 0.3, 0.8), Vector3(0, -0.4, 0), Color(0.2, 0.2, 0.22), Vector3(0, 0, 90))
 	wheel.upgrade_per_tier = {"thrust": 0.12, "top_speed": 0.08, "mass_capacity": 0.15, "ram": 0.3, "hp": 0.3}
 	out.append(wheel)
@@ -163,6 +169,9 @@ func _parts() -> Array[PartData]:
 	tread.tags = PackedStringArray(["anchored"])
 	tread.params = {"crush": 1.0} # grinds small enemies
 	tread.drive = PartData.Drive.TREAD
+	tread.paired = true
+	tread.display_name = "Tread Units"
+	tread.paths = [{"id": "fire", "name": "Exhaust Fire", "desc": "Leaves a trail of burning ground that sets enemies alight.", "params": {"trail": "fire", "trail_strength": 10.0, "trail_radius": 1.1, "trail_life": 4.0}}, {"id": "oil", "name": "Sludge Treads", "desc": "Leaves an oil slick that slows enemies to 45% speed.", "params": {"trail": "oil", "trail_strength": 0.45, "trail_radius": 1.3, "trail_life": 6.0}}]
 	_vis(tread, PartData.VisualShape.BOX, Vector3(0.45, 0.8, 1.3), Vector3(0, -0.4, 0), Color(0.3, 0.3, 0.28))
 	tread.upgrade_per_tier = {"thrust": 0.12, "mass_capacity": 0.2, "crush": 0.3, "hp": 0.3}
 	out.append(tread)
@@ -178,6 +187,7 @@ func _parts() -> Array[PartData]:
 	nail.params = {"fire_rate": 4.0, "damage": 9.0, "range": 16.0, "speed": 32.0, "arc_deg": 200.0,
 		"spread_deg": 3.0, "recoil": 0.6, "pierce": 0, "knockback": 1.5, "muzzle": 0.55, "heat_per_shot": 1.5}
 	nail.params["arc_deg"] = 120.0
+	nail.paths = [{"id": "shrapnel", "name": "Shrapnel", "desc": "Nails burst on impact: 40% splash in 1.5 m.", "params": {"splash_radius": 1.5, "splash_frac": 0.4}}, {"id": "cryo", "name": "Cryo Nails", "desc": "Hits slow enemies to 55% speed for 1.5 s.", "params": {"slow_mult": 0.55, "slow_dur": 1.5}}]
 	_vis(nail, PartData.VisualShape.BOX, Vector3(0.18, 0.18, 0.6), Vector3(0, 0.12, -0.2), Color(0.45, 0.55, 0.65))
 	nail.upgrade_per_tier = {"damage": 0.25, "fire_rate": 0.12, "range": 0.05, "hp": 0.3}
 	out.append(nail)
@@ -192,6 +202,7 @@ func _parts() -> Array[PartData]:
 	rivet.params = {"fire_rate": 1.2, "damage": 40.0, "range": 20.0, "speed": 26.0, "arc_deg": 120.0,
 		"spread_deg": 0.5, "recoil": 9.0, "pierce": 3, "knockback": 6.0, "muzzle": 0.8, "heat_per_shot": 9.0}
 	rivet.params["arc_deg"] = 70.0
+	rivet.paths = [{"id": "explosive", "name": "Explosive Rivets", "desc": "Each rivet explodes: 60% splash in 2.5 m.", "params": {"splash_radius": 2.5, "splash_frac": 0.6}}, {"id": "concussion", "name": "Concussion", "desc": "Double knockback; hits slow to 35% for 1 s.", "params": {"knockback": 12.0, "slow_mult": 0.35, "slow_dur": 1.0}}]
 	_vis(rivet, PartData.VisualShape.BOX, Vector3(0.3, 0.3, 0.9), Vector3(0, 0.18, -0.3), Color(0.6, 0.35, 0.25))
 	rivet.upgrade_per_tier = {"damage": 0.3, "fire_rate": 0.1, "hp": 0.3}
 	rivet.rarity = PartData.Rarity.RARE
@@ -337,9 +348,81 @@ func _parts() -> Array[PartData]:
 	sword.params = {"damage": 22.0, "reach": 2.4, "arc_deg": 110.0, "swing_time": 0.5,
 		"knockback": 5.0, "heat_per_swing": 2.0}
 	_vis(sword, PartData.VisualShape.BOX, Vector3(0.14, 0.1, 1.4), Vector3(0, 0.1, -0.75), Color(0.75, 0.3, 0.25))
+	sword.paths = [{"id": "searing", "name": "Searing Edge", "desc": "Sets enemies on fire: 8 dmg/s for 3 s.", "params": {"burn_dps": 8.0, "burn_dur": 3.0}}, {"id": "hamstring", "name": "Hamstring", "desc": "Cuts slow enemies to 40% speed for 2 s.", "params": {"slow_mult": 0.4, "slow_dur": 2.0}}]
 	sword.upgrade_per_tier = {"damage": 0.3, "swing_time": -0.08, "reach": 0.05, "hp": 0.3}
 	sword.rarity = PartData.Rarity.RARE
 	out.append(sword)
+
+	# --- Weapons II ---------------------------------------------------------------
+	var flamer := _part("gun_flamethrower", "Flamethrower", PartData.Category.MOUNT, MOUNT, 1)
+	flamer.mass = 1.2
+	flamer.hp = 8.0
+	flamer.power_draw = 2.0
+	flamer.drop_weight = 1.0
+	flamer.behaviors = [load("res://scripts/behaviors/weapons/flamethrower.gd")]
+	flamer.params = {"dps": 40.0, "range": 5.0, "arc_deg": 50.0, "burst_time": 1.2, "pause_time": 0.8, "heat_per_sec": 3.0}
+	flamer.upgrade_per_tier = {"dps": 0.25, "range": 0.06, "burst_time": 0.08}
+	flamer.paths = [{"id": "napalm", "name": "Napalm", "desc": "Leaves enemies burning: 10 dmg/s for 3 s.", "params": {"burn_dps": 10.0, "burn_dur": 3.0}}, {"id": "wide", "name": "Wide Nozzle", "desc": "A much wider, longer cone (85°, +1.5 m).", "params": {"arc_deg": 85.0, "range": 6.5}}]
+	_vis(flamer, PartData.VisualShape.CYLINDER, Vector3(0.2, 0.55, 0.2), Vector3(0, 0.1, -0.2), Color(0.7, 0.35, 0.15), Vector3(-90, 0, 0))
+	out.append(flamer)
+
+	var boom := _part("gun_boomerang", "Boomerang Launcher", PartData.Category.MOUNT, MOUNT, 1)
+	boom.mass = 1.0
+	boom.hp = 8.0
+	boom.power_draw = 1.0
+	boom.drop_weight = 1.0
+	boom.behaviors = [load("res://scripts/behaviors/weapons/boomerang.gd")]
+	boom.params = {"damage": 16.0, "range": 9.0, "curve": 1.2, "flight_time": 1.4, "interval": 2.2, "blades": 1, "heat_per_throw": 2.0}
+	boom.upgrade_per_tier = {"damage": 0.25, "range": 0.08, "interval": -0.06}
+	boom.paths = [{"id": "twin", "name": "Twin Blades", "desc": "Throws two blades in mirrored arcs.", "params": {"blades": 2}}, {"id": "razor", "name": "Razor Wind", "desc": "Blades slow enemies to 50% for 2 s.", "params": {"slow_mult": 0.5, "slow_dur": 2.0}}]
+	_vis(boom, PartData.VisualShape.BOX, Vector3(0.3, 0.2, 0.4), Vector3(0, 0.1, -0.15), Color(0.6, 0.6, 0.7))
+	out.append(boom)
+
+	var laser := _part("gun_laser", "Lance Laser", PartData.Category.MOUNT, MOUNT, 2)
+	laser.rarity = PartData.Rarity.RARE
+	laser.mass = 1.8
+	laser.hp = 10.0
+	laser.power_draw = 4.0
+	laser.cpu_cost = 1
+	laser.drop_weight = 0.8
+	laser.behaviors = [load("res://scripts/behaviors/weapons/laser.gd")]
+	laser.params = {"damage": 45.0, "range": 22.0, "width": 0.5, "arc_deg": 40.0, "charge_time": 2.5, "heat_per_shot": 8.0, "beams": 1, "spread_deg": 12.0}
+	laser.upgrade_per_tier = {"damage": 0.3, "charge_time": -0.08, "range": 0.05}
+	laser.paths = [{"id": "prism", "name": "Prism", "desc": "Splits into 3 beams fanned 24° apart.", "params": {"beams": 3, "spread_deg": 12.0}}, {"id": "burning", "name": "Burning Beam", "desc": "Twice as wide and sets enemies on fire.", "params": {"width": 1.0, "burn_dps": 12.0, "burn_dur": 3.0}}]
+	_vis(laser, PartData.VisualShape.BOX, Vector3(0.18, 0.22, 1.0), Vector3(0, 0.12, -0.35), Color(0.75, 0.2, 0.3))
+	out.append(laser)
+
+	var bay := _part("gun_drone_bay", "Drone Bay", PartData.Category.MOUNT, MOUNT, 2)
+	bay.rarity = PartData.Rarity.RARE
+	bay.mass = 1.6
+	bay.hp = 12.0
+	bay.power_draw = 3.0
+	bay.drop_weight = 0.8
+	bay.behaviors = [load("res://scripts/behaviors/weapons/drone_bay.gd")]
+	bay.params = {"drones": 1, "damage": 6.0, "range": 10.0, "fire_interval": 0.5, "orbit_radius": 2.2}
+	bay.upgrade_per_tier = {"damage": 0.3, "fire_interval": -0.06, "range": 0.06}
+	bay.paths = [{"id": "swarm", "name": "Swarm", "desc": "Launch a second drone.", "params": {"drones": 2}}, {"id": "repair", "name": "Repair Drones", "desc": "Your drone also repairs you 2 HP/s.", "params": {"heal_per_sec": 2.0}}]
+	_vis(bay, PartData.VisualShape.BOX, Vector3(0.5, 0.3, 0.5), Vector3(0, 0.15, 0), Color(0.55, 0.5, 0.3))
+	out.append(bay)
+
+	var hover := _part("loco_hover_pad", "Hover Pads", PartData.Category.LOCOMOTION, LOCO, 1)
+	hover.rarity = PartData.Rarity.RARE
+	hover.drive = PartData.Drive.HOVER
+	hover.paired = true
+	hover.mass = 1.0
+	hover.hp = 10.0
+	hover.power_draw = 2.0 # each pad; pads need power to float
+	hover.top_speed = 9.0
+	hover.thrust = 28.0
+	hover.grip = 0.15
+	hover.mass_capacity = 5.0
+	hover.turn_rate_deg = 360.0
+	hover.drop_weight = 0.7
+	hover.params = {"hover_height": 0.5}
+	hover.upgrade_per_tier = {"thrust": 0.12, "top_speed": 0.08, "mass_capacity": 0.15, "hp": 0.3}
+	hover.paths = [{"id": "fire", "name": "Thermal Wake", "desc": "Leaves a trail of burning ground.", "params": {"trail": "fire", "trail_strength": 10.0, "trail_radius": 1.2, "trail_life": 4.0}}, {"id": "static", "name": "Static Field", "desc": "Leaves a crackling field that slows enemies to 40%.", "params": {"trail": "static", "trail_strength": 0.4, "trail_radius": 1.3, "trail_life": 5.0}}]
+	_vis(hover, PartData.VisualShape.CYLINDER, Vector3(0.6, 0.18, 0.6), Vector3(0, -0.12, 0), Color(0.3, 0.75, 0.9))
+	out.append(hover)
 
 	# --- Signature parts: one distinct mechanic each, one per run -------------
 	var magnet := _part("sig_magnet_arm", "Magnet Arm", PartData.Category.MOUNT, MOUNT, 2)

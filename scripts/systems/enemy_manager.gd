@@ -26,6 +26,11 @@ var flash := PackedFloat32Array()
 var type_idx := PackedInt32Array()
 ## Per-enemy timer the robot uses to rate-limit ram hits.
 var cooldown := PackedFloat32Array()
+## Status effects: speed multiplier while slowed, and burning damage per sec.
+var slow_t := PackedFloat32Array()
+var slow_mult := PackedFloat32Array()
+var burn_t := PackedFloat32Array()
+var burn_dps := PackedFloat32Array()
 
 var _grid: Dictionary = {} # Vector2i -> PackedInt32Array
 var _spawn_accum := 0.0
@@ -43,6 +48,10 @@ func _ready() -> void:
 	flash.resize(max_enemies)
 	type_idx.resize(max_enemies)
 	cooldown.resize(max_enemies)
+	slow_t.resize(max_enemies)
+	slow_mult.resize(max_enemies)
+	burn_t.resize(max_enemies)
+	burn_dps.resize(max_enemies)
 
 	var mesh := PrismMesh.new() # wedge-shaped scrap bugs
 	mesh.size = Vector3(1.0, 1.0, 1.0)
@@ -85,6 +94,10 @@ func spawn(type_index: int, at: Vector3) -> int:
 	hp[i] = t.hp
 	flash[i] = 0.0
 	cooldown[i] = 0.0
+	slow_t[i] = 0.0
+	slow_mult[i] = 1.0
+	burn_t[i] = 0.0
+	burn_dps[i] = 0.0
 	type_idx[i] = type_index
 	return i
 
@@ -120,6 +133,33 @@ func damage(i: int, amount: float, knockback: Vector3 = Vector3.ZERO) -> bool:
 		_on_killed(i)
 		return true
 	return false
+
+
+## Slows an enemy to `mult` of its speed for `duration` s (strongest wins).
+func apply_slow(i: int, mult: float, duration: float) -> void:
+	if not is_alive(i):
+		return
+	if slow_t[i] <= 0.0 or mult < slow_mult[i]:
+		slow_mult[i] = clampf(mult, 0.05, 1.0)
+	slow_t[i] = maxf(slow_t[i], duration)
+
+
+## Sets an enemy on fire: `dps` for `duration` s (strongest wins).
+func apply_burn(i: int, dps: float, duration: float) -> void:
+	if not is_alive(i):
+		return
+	burn_dps[i] = maxf(burn_dps[i] if burn_t[i] > 0.0 else 0.0, dps)
+	burn_t[i] = maxf(burn_t[i], duration)
+
+
+## On-hit extras from a weapon or path: slow_mult/slow_dur, burn_dps/burn_dur.
+func apply_hit_fx(i: int, fx: Dictionary) -> void:
+	if fx.is_empty():
+		return
+	if float(fx.get("slow_dur", 0.0)) > 0.0:
+		apply_slow(i, float(fx.get("slow_mult", 0.6)), float(fx["slow_dur"]))
+	if float(fx.get("burn_dur", 0.0)) > 0.0:
+		apply_burn(i, float(fx.get("burn_dps", 5.0)), float(fx["burn_dur"]))
 
 
 ## Damages every live enemy within `radius` (XZ, edge-inclusive) of `origin`,
@@ -247,6 +287,15 @@ func _simulate(delta: float) -> void:
 			if checked >= 6:
 				break
 
+		if slow_t[i] > 0.0:
+			slow_t[i] -= delta
+			desired *= slow_mult[i]
+		if burn_t[i] > 0.0:
+			burn_t[i] -= delta
+			hp[i] -= burn_dps[i] * delta # no hit flash for damage over time
+			if hp[i] <= 0.0:
+				_on_killed(i)
+				continue
 		var v := vel[i].lerp(desired, steer) + sep * delta
 		p += v * delta
 		p.x = clampf(p.x, -arena_half_extent, arena_half_extent)
@@ -336,6 +385,10 @@ func _compact() -> void:
 			hp[i] = hp[count]
 			flash[i] = flash[count]
 			cooldown[i] = cooldown[count]
+			slow_t[i] = slow_t[count]
+			slow_mult[i] = slow_mult[count]
+			burn_t[i] = burn_t[count]
+			burn_dps[i] = burn_dps[count]
 			type_idx[i] = type_idx[count]
 		else:
 			i += 1
@@ -358,6 +411,10 @@ func _update_multimesh() -> void:
 		b = b * Basis.from_scale(Vector3(s, s * 1.2, s * 0.8))
 		_mm.set_instance_transform(i, Transform3D(b, p))
 		var col := t.color
+		if burn_t[i] > 0.0:
+			col = col.lerp(Color(1.0, 0.5, 0.1), 0.5)
+		elif slow_t[i] > 0.0:
+			col = col.lerp(Color(0.4, 0.7, 1.0), 0.5)
 		if flash[i] > 0.0:
 			col = Color.WHITE
 		_mm.set_instance_color(i, col)

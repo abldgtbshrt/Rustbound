@@ -34,6 +34,10 @@ func _run() -> void:
 	_test_drive_modes()
 	await _test_drive_feel()
 	await _test_signature_parts()
+	_test_pairs()
+	await _test_hover()
+	await _test_new_weapons()
+	await _test_paths_and_effects()
 	await _bench_horde()
 	print("")
 	print("%d checks, %d failed" % [_checks, _failures])
@@ -55,17 +59,23 @@ func part(id: String) -> PartData:
 	return p
 
 
+## Builds a robot part by part with raw single attaches (no automatic
+## pairing), so physics tests control exactly what's where.
 func make_assembly(chassis: String, layout: Array) -> RobotAssembly:
 	var a := RobotAssembly.new()
 	a.root_part_data = part("core_scrapper")
 	var parts: Array[PartData] = [part(chassis)]
 	var sockets: Array[StringName] = [&"chassis"]
-	for e in layout:
-		parts.append(part(e[0]))
-		sockets.append(StringName(e[1]))
 	a.starting_parts = parts
 	a.starting_sockets = sockets
 	a.build(null)
+	for e in layout:
+		var sn := StringName(e[1])
+		for inst in a.get_all_parts():
+			var s := inst.data.get_socket(sn)
+			if s != null and inst.is_socket_free(sn):
+				a.attach(part(e[0]), inst, sn)
+				break
 	return a
 
 
@@ -354,7 +364,7 @@ func _test_main_scene_flow() -> void:
 	var upgraded := false
 	for id in rs.part_tiers.keys():
 		upgraded = upgraded or rs.part_tiers[id] > 1
-	check(robot.assembly.part_count == parts_before + 1 or rs.inventory.size() == 1 or upgraded, "chosen card installed, benched or upgraded")
+	check(robot.assembly.part_count > parts_before or rs.inventory.size() == 1 or upgraded, "chosen card installed, benched or upgraded")
 	# Repair option.
 	robot.hp = 10.0
 	rs.add_xp(rs.xp_to_next())
@@ -378,7 +388,7 @@ func _test_main_scene_flow() -> void:
 	var loco_n := robot.assembly.locomotion.part_count
 	bm.select_part(leg)
 	check(bm.detach_selected(), "detach leg")
-	check(rs.inventory.size() >= 1 and robot.assembly.locomotion.part_count == loco_n - 1, "leg moved to bench, one fewer locomotion part")
+	check(rs.inventory.count(part("loco_biped_leg")) == 1 and robot.assembly.locomotion.part_count == loco_n - 2, "detaching one leg benches the pair (one bench item)")
 	check(robot.assembly.part_count < count, "part count dropped")
 	var idx: int = rs.inventory.find(part("loco_biped_leg"))
 	bm.select_bench(idx)
@@ -392,7 +402,7 @@ func _test_main_scene_flow() -> void:
 	var world := chassis.global_transform * chassis.get_socket_transform(sock).origin
 	bm.pick_at(cam.unproject_position(world))
 	var reattached := chassis.get_child_in(&"bottom_0_1") != null
-	check(reattached and robot.assembly.locomotion.part_count == loco_n, "clicking the socket re-attaches the leg")
+	check(reattached and robot.assembly.locomotion.part_count == loco_n, "clicking a socket places the whole pair")
 
 	# Scrap from the bench.
 	rs.add_to_inventory(part("armor_plate"))
@@ -706,7 +716,7 @@ func _test_upgrades() -> void:
 	rs.inventory.clear()
 	bm.enter()
 	var n := bm.strip_all()
-	check(robot.assembly.part_count == 1 and rs.inventory.size() == n and n >= 5, "strip to core benches everything (%d parts)" % n)
+	check(robot.assembly.part_count == 1 and rs.inventory.size() == n and n >= 4, "strip to core benches everything (%d items, legs as one pair)" % n)
 	bm.select_bench(rs.inventory.find(part("chassis_box")))
 	check(bm.attach_selected(robot.assembly.root, &"chassis"), "rebuild: chassis back on the core")
 	bm.select_bench(rs.inventory.find(part("loco_biped_leg")))
@@ -986,6 +996,243 @@ func _test_signature_parts() -> void:
 	robot.hp = 50.0
 	EventBus.scrap_collected.emit(10)
 	check(robot.hp > 50.0, "scrap maw repairs from scrap (%.0f)" % robot.hp)
+	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _test_pairs() -> void:
+	print("drivetrain pairs")
+	var a := make_assembly("chassis_box", [])
+	var left := a.auto_attach(part("loco_biped_leg"))
+	check(left != null and a.locomotion.part_count == 2, "one leg item places a mirrored pair (%d)" % a.locomotion.part_count)
+	var twin := a.find_twin(left)
+	check(twin != null and twin != left, "the pair are mirror twins")
+	a.auto_attach(part("loco_biped_leg"))
+	check(a.locomotion.part_count == 4 and a.locomotion.leg_count == 4, "a second pair makes four legs")
+	var removed := a.detach_with_twin(left)
+	check(removed.size() == 2 and a.locomotion.part_count == 2, "detaching one removes its twin")
+	var items := RobotAssembly.to_bench_items(removed)
+	check(items.size() == 1, "a detached pair is one bench item")
+	var mixed: Array[PartData] = [part("loco_wheel"), part("gun_nail"), part("loco_wheel"), part("loco_wheel")]
+	check(RobotAssembly.to_bench_items(mixed).size() == 3, "odd leftovers round up to a pair (3 wheels -> 2 items + nail)")
+	a.free()
+
+
+func _test_hover() -> void:
+	print("hover drive")
+	var h := make_assembly("chassis_box", [["loco_hover_pad", "bottom_0_1"], ["loco_hover_pad", "bottom_1_1"]])
+	check(h.locomotion.mode == LocomotionProfile.Mode.HOVER and not h.locomotion.can_jump, "hover pads = Hover mode")
+	var min_y := INF
+	for e in h._walk_local():
+		min_y = minf(min_y, h._part_bounds(e[0], e[1]).position.y)
+	check(absf(min_y - 0.5) < 0.05, "robot floats 0.5 m up (lowest point %.2f)" % min_y)
+	check(h.power_draw >= 4.0, "pads draw power (%.0f)" % h.power_draw)
+	h.free()
+
+	var scene: Node = await _arena()
+	var robot: RobotController = rs.robot
+	robot.base_hp = 1.0e6
+	robot.hp = 1.0e6
+	for p in robot.assembly.get_all_parts():
+		if p.data.id == &"gun_nail" and is_instance_valid(p) and p.parent_part != null:
+			robot.assembly.detach(p)
+	var c := _chassis(robot)
+	robot.assembly.detach_with_twin(c.get_child_in(&"bottom_0_1"))
+	robot.assembly.attach_pair(part("loco_hover_pad"), c, &"bottom_0_1")
+	check(robot.assembly.locomotion.mode == LocomotionProfile.Mode.HOVER, "robot hovering")
+	robot.global_position = Vector3(0, 0.1, 20)
+	robot.rotation.y = 0.0
+	var e: int = rs.enemies.spawn(2, robot.global_position + Vector3(8, 0, 0))
+	rs.enemies.enemy_types[2].speed = 0.0
+	Input.action_press("move_forward")
+	for f in 90:
+		await get_tree().physics_frame
+		rs.enemies.pos[e] = robot.global_position + Vector3(8, 0.8, 0) # keep it beside us
+	Input.action_release("move_forward")
+	rs.enemies.enemy_types[2].speed = 2.2
+	var facing := -robot.global_basis.z
+	var vel := Vector3(robot.velocity.x, 0, robot.velocity.z).normalized()
+	check(facing.dot(Vector3.RIGHT) > 0.8, "hover faces the enemy beside it (%s)" % facing)
+	check(vel.dot(Vector3.FORWARD) > 0.8, "while strafing forward (%s)" % vel)
+	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _hurt_count(em: EnemyManager, full: float = 70.0) -> int:
+	var n := 0
+	for i in em.count:
+		n += 1 if em.hp[i] < full - 0.01 else 0
+	return n
+
+
+func _test_new_weapons() -> void:
+	print("new weapons: flamethrower, laser, boomerang, drone bay")
+	var scene: Node = await _arena()
+	var robot: RobotController = rs.robot
+	var em: EnemyManager = rs.enemies
+	var c := _chassis(robot)
+	robot.base_hp = 1.0e6
+	robot.hp = 1.0e6
+	for p in robot.assembly.get_all_parts():
+		if p.data.id == &"gun_nail" and is_instance_valid(p) and p.parent_part != null:
+			robot.assembly.detach(p)
+	em.enemy_types[2].speed = 0.0 # stationary targets
+
+	# Flamethrower: cone in front, nothing behind, bursts on and off.
+	var fl := robot.assembly.attach(part("gun_flamethrower"), c, &"front_0_0")
+	await get_tree().physics_frame
+	var ff := fl.get_facing_global()
+	var front := em.spawn(2, fl.global_position + ff * 3.0)
+	var back := em.spawn(2, fl.global_position - ff * 3.0)
+	var fb: FlamethrowerBehavior = fl.behaviors[0]
+	var saw_on := false
+	var saw_off_after := false
+	for f in 150:
+		await get_tree().physics_frame
+		saw_on = saw_on or fb.is_firing()
+		saw_off_after = saw_off_after or (saw_on and not fb.is_firing())
+	check(em.hp[front] < 70.0 and is_equal_approx(em.hp[back], 70.0), "flame cone burns what's in front only (%.0f / %.0f)" % [em.hp[front], em.hp[back]])
+	check(saw_on and saw_off_after, "flamethrower fires in bursts")
+	robot.assembly.detach(fl)
+	em.clear_all()
+
+	# Laser: one beam through a whole line.
+	var lz := robot.assembly.attach(part("gun_laser"), c, &"top_1_0")
+	await get_tree().physics_frame
+	var lf := lz.get_facing_global()
+	for d in [5.0, 9.0, 13.0]:
+		em.spawn(2, lz.global_position + lf * d)
+	var lb: LaserBehavior = lz.behaviors[0]
+	for f in 170:
+		await get_tree().physics_frame
+	check(lb.shots >= 1 and lb.last_hits >= 3, "laser hits every enemy in the line (%d)" % lb.last_hits)
+	robot.assembly.detach(lz)
+	em.clear_all()
+
+	# Boomerang: out and back, hitting on the way.
+	var bm := robot.assembly.attach(part("gun_boomerang"), c, &"front_0_0")
+	await get_tree().physics_frame
+	var bf := bm.get_facing_global()
+	em.spawn(2, bm.global_position + bf * 6.0)
+	var bb: BoomerangBehavior = bm.behaviors[0]
+	var flew := false
+	for f in 60:
+		await get_tree().physics_frame
+		flew = flew or bb.in_flight() > 0
+	for f in 60:
+		await get_tree().physics_frame
+	check(flew and bb.throws >= 1 and bb.hits >= 1, "boomerang thrown and hits (%d hits)" % bb.hits)
+	robot.assembly.detach(bm)
+	em.clear_all()
+
+	# Drone bay: an orbiting bot that shoots.
+	var bay := robot.assembly.attach(part("gun_drone_bay"), c, &"top_0_0")
+	em.spawn(2, robot.global_position + Vector3(6, 0, 0))
+	var db: DroneBayBehavior = bay.behaviors[0]
+	for f in 90:
+		await get_tree().physics_frame
+	check(db.drones.size() == 1 and db.shots >= 2 and _hurt_count(em) >= 1, "drone follows and shoots (%d shots)" % db.shots)
+	var dpos := db.drones[0].global_position
+	check(dpos.distance_to(robot.global_position) < 4.0 and dpos.y > 1.0, "drone orbits above the robot")
+	em.enemy_types[2].speed = 2.2
+	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _test_paths_and_effects() -> void:
+	print("upgrade paths, status effects, trails")
+	var scene: Node = await _arena()
+	var robot: RobotController = rs.robot
+	var em: EnemyManager = rs.enemies
+	var c := _chassis(robot)
+	robot.base_hp = 1.0e6
+	robot.hp = 1.0e6
+	var nail := part("gun_nail")
+	check(not rs.needs_path_choice(nail), "no fork at Mk I")
+	rs.upgrade_part(nail)
+	check(rs.needs_path_choice(nail), "Mk II -> III is a fork")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var paired_cards := false
+	for k in 40:
+		var offers := UpgradeOffers.roll(3, 2, rng)
+		var n := 0
+		for o in offers:
+			if o["kind"] == "path" and o["part"] == nail:
+				n += 1
+		if n > 0:
+			paired_cards = paired_cards or n == 2
+			if n != 2:
+				check(false, "both nailgun paths offered together (got %d)" % n)
+	check(paired_cards, "path cards show up as a pair")
+	check(rs.choose_path(nail, &"shrapnel") and rs.get_tier(&"gun_nail") == 3, "choosing a path upgrades to Mk III")
+	check(not rs.needs_path_choice(nail), "fork resolved")
+	var gun: NailgunBehavior = null
+	for b in robot.assembly.get_all_behaviors():
+		if b is NailgunBehavior and gun == null:
+			gun = b
+	check(is_equal_approx(float(gun.param("splash_radius", 0.0)), 1.5) and gun.hit_fx().has("splash_radius"), "path params reach the weapon")
+
+	# Splash: one nail into a tight cluster hurts several.
+	em.enemy_types[2].speed = 0.0
+	var at := robot.global_position + Vector3(0, 0, -6)
+	for off in [Vector3.ZERO, Vector3(0.9, 0, 0), Vector3(-0.9, 0, 0)]:
+		em.spawn(2, at + off)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	for b in robot.assembly.get_all_behaviors():
+		if b is NailgunBehavior:
+			robot.assembly.detach(b.part)
+	rs.projectiles.fire(at + Vector3(0, 0.5, 2.0), Vector3(0, 0, -20), 10.0, 1.0, 0.25, 0, 0.0, Color.WHITE, {"splash_radius": 1.5, "splash_frac": 0.4})
+	for f in 10:
+		await get_tree().physics_frame
+	check(_hurt_count(em) == 3, "shrapnel splash hits the cluster (%d)" % _hurt_count(em))
+	em.clear_all()
+
+	# Slow and burn.
+	var i := em.spawn(0, robot.global_position + Vector3(15, 0, 0))
+	var j := em.spawn(0, robot.global_position + Vector3(-15, 0, 0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	em.apply_slow(i, 0.3, 5.0)
+	var pi0 := em.pos[i]
+	var pj0 := em.pos[j]
+	for f in 30:
+		await get_tree().physics_frame
+	var di := em.pos[i].distance_to(pi0)
+	var dj := em.pos[j].distance_to(pj0)
+	check(di < dj * 0.5, "slowed enemy moves less (%.2f vs %.2f m)" % [di, dj])
+	var hp0 := em.hp[j]
+	em.apply_burn(j, 10.0, 2.0)
+	for f in 30:
+		await get_tree().physics_frame
+	check(em.hp[j] < hp0 - 3.0 and em.flash[j] <= 0.0, "burning ticks damage without hit flashes")
+	em.clear_all()
+
+	# Trails: Scorched Steps (fire) on the legs.
+	var legs := part("loco_biped_leg")
+	rs.upgrade_part(legs)
+	check(rs.choose_path(legs, &"fire"), "legs take the fire-trail path")
+	em.enemy_types[2].speed = 2.2
+	robot.global_position = Vector3(0, 0.1, 20)
+	Input.action_press("move_forward")
+	for f in 90:
+		await get_tree().physics_frame
+	Input.action_release("move_forward")
+	var hz: HazardField = rs.hazards as HazardField
+	check(hz.count >= 3, "walking leaves a fire trail (%d patches)" % hz.count)
+	var k := em.spawn(2, hz.pos[0])
+	em.enemy_types[2].speed = 0.0
+	for f in 20:
+		await get_tree().physics_frame
+	check(em.burn_t[k] > 0.0 or em.hp[k] < 70.0, "enemies standing in it catch fire")
+	# Oil patch slows.
+	hz.spawn(robot.global_position + Vector3(10, 0, 0), HazardField.Kind.OIL, 1.5, 5.0, 0.45)
+	var o := em.spawn(0, robot.global_position + Vector3(10, 0, 0))
+	for f in 20:
+		await get_tree().physics_frame
+	check(em.slow_t[o] > 0.0 and em.slow_mult[o] < 0.5, "oil slicks slow enemies")
+	em.enemy_types[2].speed = 2.2
 	scene.queue_free()
 	await get_tree().process_frame
 

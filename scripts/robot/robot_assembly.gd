@@ -101,6 +101,9 @@ func attach_by_socket_name(part: PartData, socket_name: StringName, do_recompute
 	for inst in get_all_parts():
 		var s := inst.data.get_socket(socket_name)
 		if s != null and inst.is_socket_free(socket_name) and can_fit(part, s):
+			if part.paired:
+				var pair := attach_pair(part, inst, socket_name, yaw_steps)
+				return pair[0] if not pair.is_empty() else null
 			return attach(part, inst, socket_name, do_recompute, yaw_steps)
 	return null
 
@@ -139,7 +142,65 @@ func auto_attach(part: PartData, do_recompute: bool = true) -> PartInstance:
 	var best := find_best_socket(part)
 	if best.is_empty():
 		return null
+	if part.paired:
+		var pair := attach_pair(part, best[0], best[1])
+		return pair[0] if not pair.is_empty() else null
 	return attach(part, best[0], best[1], do_recompute)
+
+
+## Places a paired part (drivetrain) on `socket_name` and its mirror image on
+## the opposite side. Returns [left, right] or [] if there's no free mirrored
+## socket. Center-line sockets can't take pairs.
+func attach_pair(part: PartData, parent: PartInstance, socket_name: StringName, yaw_steps: int = 0) -> Array:
+	var socket := parent.data.get_socket(socket_name) if parent != null else null
+	if socket == null or not parent.is_socket_free(socket_name) or not can_fit(part, socket):
+		return []
+	var twin := find_mirror_socket(part, parent, socket)
+	if twin.is_empty():
+		return []
+	var a := attach(part, parent, socket_name, false, yaw_steps)
+	var b := attach(part, twin[0], (twin[1] as SocketDef).marker_name, true, -yaw_steps)
+	return [a, b]
+
+
+## The mirror-image copy of `inst` (same part, x flipped), or null.
+func find_twin(inst: PartInstance) -> PartInstance:
+	var mine := Vector3.ZERO
+	var entries := _walk_local()
+	for e in entries:
+		if e[0] == inst:
+			mine = (e[1] as Transform3D).origin
+	for e in entries:
+		var other: PartInstance = e[0]
+		if other == inst or other.data != inst.data:
+			continue
+		if (e[1] as Transform3D).origin.distance_to(Vector3(-mine.x, mine.y, mine.z)) < 0.06:
+			return other
+	return null
+
+
+## Detaches a part, and its twin if it's a paired drivetrain part.
+func detach_with_twin(inst: PartInstance) -> Array[PartData]:
+	var twin := find_twin(inst) if inst != null and inst.data.paired else null
+	var removed := detach(inst)
+	if twin != null and is_instance_valid(twin) and twin.parent_part != null:
+		removed.append_array(detach(twin))
+	return removed
+
+
+## Bench entries for removed parts: paired parts go back as one item per pair.
+static func to_bench_items(removed: Array[PartData]) -> Array[PartData]:
+	var out: Array[PartData] = []
+	var paired_counts: Dictionary = {}
+	for p in removed:
+		if p.paired:
+			paired_counts[p] = int(paired_counts.get(p, 0)) + 1
+		else:
+			out.append(p)
+	for p in paired_counts.keys():
+		for k in ceili(float(paired_counts[p]) / 2.0):
+			out.append(p)
+	return out
 
 
 ## Returns [PartInstance, StringName] or [] if no socket fits.
@@ -155,6 +216,10 @@ func find_best_socket(part: PartData) -> Array:
 		for s in inst.get_free_sockets():
 			if not can_fit(part, s):
 				continue
+			if part.paired:
+				var sp := xf * s.get_transform().origin
+				if sp.x > -0.05 or find_mirror_socket(part, inst, s).is_empty():
+					continue # pairs go left + mirrored right
 			var p := xf * (s.get_transform() * part.visual_offset)
 			var new_com := (com_mass + Vector2(p.x, p.z) * part.mass) / maxf(total_mass + part.mass, 0.001)
 			var score := new_com.length()
@@ -408,6 +473,10 @@ func recompute() -> void:
 		support_max = Vector2(center_of_mass.x + 0.15, center_of_mass.z + 0.15)
 	footprint = minf(support_max.x - support_min.x, support_max.y - support_min.y)
 	locomotion = LocomotionProfile.resolve(loco_entries, center_of_mass)
+	if locomotion.mode == LocomotionProfile.Mode.HOVER:
+		# Hover pads hold the whole robot off the ground.
+		root.position.y += locomotion.hover_height
+		center_of_mass.y += locomotion.hover_height
 	stability += locomotion.extra_leg_stability()
 
 	assembly_changed.emit()

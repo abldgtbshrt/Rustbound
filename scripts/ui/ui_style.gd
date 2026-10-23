@@ -125,6 +125,17 @@ static func describe_part(p: PartData) -> PackedStringArray:
 	if p.params.has("min_range") and p.params.has("flight_time"): out.append("lobs shells into crowds %.0f-%.0f m away" % [float(p.params["min_range"]), float(p.params["range"])])
 	if p.params.has("shield_arc_deg"): out.append("energy shield: hits from its %.0f° arc drain battery, not HP" % float(p.params["shield_arc_deg"]))
 	if p.params.has("heal_per_scrap"): out.append("bites what's in front; eats scrap to repair")
+	if p.paired: out.append("comes as a mirrored pair")
+	if not p.paths.is_empty():
+		var chosen: StringName = RunState.get_path_id(p.id)
+		if chosen != &"":
+			var cp := p.find_path(chosen)
+			out.append("Path: %s - %s" % [String(cp.get("name", "")), String(cp.get("desc", ""))])
+		else:
+			var names: PackedStringArray = []
+			for q in p.paths:
+				names.append(String(q.get("name", "")))
+			out.append("Mk III fork: " + " / ".join(names))
 	for k in p.neighbor_mods.keys():
 		out.append("linked parts: %s x%.2f" % [String(k).trim_suffix("_mult").replace("_", " "), float(p.neighbor_mods[k])])
 	if float(p.params.get("heat_per_shot", 0.0)) > 0.0:

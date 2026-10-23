@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/signature/tesla_coil.gd" id="1_35rig"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_83vcc"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_huhdo"]
+[ext_resource type="Script" path="res://scripts/behaviors/signature/tesla_coil.gd" id="1_yfgun"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_oeib3"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_g8s5g"]
 
 [resource]
-script = ExtResource("2_83vcc")
+script = ExtResource("2_oeib3")
 id = &"sig_tesla_coil"
 display_name = "Tesla Coil"
 category = 3
@@ -34,9 +34,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("3_huhdo")]([])
+sockets = Array[ExtResource("3_g8s5g")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_35rig")])
+behaviors = Array[Script]([ExtResource("1_yfgun")])
 params = {
 "chain_range": 3.5,
 "chains": 4,
@@ -51,6 +51,8 @@ upgrade_per_tier = {
 "damage": 0.25,
 "range": 0.08
 }
+paths = Array[Dictionary]([])
+paired = false
 rarity = 1
 unique = true
 drop_weight = 1.0

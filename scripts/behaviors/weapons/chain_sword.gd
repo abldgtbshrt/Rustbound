@@ -36,6 +36,7 @@ func on_tick(delta: float) -> void:
 	if fwd == Vector3.ZERO:
 		fwd = -robot.global_basis.z
 	var cos_half := cos(deg_to_rad(arc * 0.5))
+	var fx := hit_fx()
 	var hit := 0
 	for i in enemies.query_radius(origin, reach + 1.0):
 		var to := enemies.pos[i] - origin
@@ -46,6 +47,7 @@ func on_tick(delta: float) -> void:
 		if d > 0.05 and fwd.dot(to / d) < cos_half:
 			continue
 		enemies.damage(i, dmg, (to / maxf(d, 0.05)) * knock)
+		enemies.apply_hit_fx(i, fx)
 		hit += 1
 	if hit == 0:
 		return

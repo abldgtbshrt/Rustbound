@@ -75,7 +75,7 @@ func on_tick(delta: float) -> void:
 
 	var spread := deg_to_rad(_rng.randf_range(-spread_deg, spread_deg))
 	dir = dir.rotated(Vector3.UP, spread)
-	pool.fire(origin, dir * speed, damage, max_range / speed * 1.15, 0.25, pierce, knockback)
+	pool.fire(origin, dir * speed, damage, max_range / speed * 1.15, 0.25, pierce, knockback, Color(1.0, 0.85, 0.4), hit_fx())
 	robot.apply_recoil(-Vector3(dir.x, 0.0, dir.z) * recoil)
 	robot.add_heat(heat_per_shot)
 	shots_fired += 1

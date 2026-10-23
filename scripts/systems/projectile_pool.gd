@@ -15,6 +15,8 @@ var radius := PackedFloat32Array()
 var knock := PackedFloat32Array()
 var pierce := PackedInt32Array()
 var color := PackedColorArray()
+## Per-projectile on-hit extras: splash_radius, splash_frac, slow_*, burn_*.
+var fx: Array[Dictionary] = []
 
 ## Total hits landed this run; handy for tests and stats.
 var hits: int = 0
@@ -34,6 +36,7 @@ func _ready() -> void:
 	knock.resize(max_projectiles)
 	pierce.resize(max_projectiles)
 	color.resize(max_projectiles)
+	fx.resize(max_projectiles)
 	var mesh := BoxMesh.new()
 	mesh.size = Vector3(0.12, 0.12, 0.6)
 	var mat := PartVisuals.material_for(Color.WHITE).duplicate() as ShaderMaterial
@@ -55,7 +58,7 @@ func _exit_tree() -> void:
 		RunState.projectiles = null
 
 
-func fire(origin: Vector3, velocity: Vector3, damage: float, lifetime: float, p_radius: float = 0.25, p_pierce: int = 0, knockback: float = 1.0, p_color: Color = Color(1.0, 0.85, 0.4)) -> bool:
+func fire(origin: Vector3, velocity: Vector3, damage: float, lifetime: float, p_radius: float = 0.25, p_pierce: int = 0, knockback: float = 1.0, p_color: Color = Color(1.0, 0.85, 0.4), p_fx: Dictionary = {}) -> bool:
 	if count >= max_projectiles:
 		return false
 	var i := count
@@ -68,6 +71,7 @@ func fire(origin: Vector3, velocity: Vector3, damage: float, lifetime: float, p_
 	pierce[i] = p_pierce
 	knock[i] = knockback
 	color[i] = p_color
+	fx[i] = p_fx
 	return true
 
 
@@ -94,6 +98,13 @@ func _physics_process(delta: float) -> void:
 					continue
 				var push := Vector3(vel[i].x, 0.0, vel[i].z).normalized() * knock[i]
 				enemies.damage(e, dmg[i], push)
+				var f := fx[i]
+				if not f.is_empty():
+					enemies.apply_hit_fx(e, f)
+					var sr := float(f.get("splash_radius", 0.0))
+					if sr > 0.0:
+						enemies.damage_radius(p, sr, dmg[i] * float(f.get("splash_frac", 0.4)), 2.0)
+						VentEffect.spawn(self, p, sr, Color(1.0, 0.7, 0.3, 0.7))
 				hits += 1
 				pierce[i] -= 1
 				if pierce[i] < 0:
@@ -117,6 +128,7 @@ func _remove(i: int) -> void:
 	pierce[i] = pierce[count]
 	knock[i] = knock[count]
 	color[i] = color[count]
+	fx[i] = fx[count]
 
 
 func _update_multimesh() -> void:

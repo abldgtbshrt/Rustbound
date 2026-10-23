@@ -99,6 +99,9 @@ var _knockdown_t := 0.0
 var _knockdown_axis := Vector3.RIGHT
 var _was_on_floor := true
 var _fall_speed := 0.0
+var _trail_dist := 0.0
+var _last_pos := Vector3.ZERO
+var _bob_t := 0.0
 
 
 func _ready() -> void:
@@ -172,6 +175,8 @@ func _physics_process(delta: float) -> void:
 	if dir.length() > 1.0:
 		dir = dir.normalized()
 
+	if prof.mode != LocomotionProfile.Mode.HOVER:
+		assembly.position.y = 0.0
 	var hvel := Vector3(velocity.x, 0.0, velocity.z)
 	var start_hvel := hvel
 	var accel := prof.thrust / mass
@@ -183,6 +188,8 @@ func _physics_process(delta: float) -> void:
 				hvel = _move_vehicle(hvel, dir, delta, accel, false)
 			LocomotionProfile.Mode.TANK:
 				hvel = _move_vehicle(hvel, dir, delta, accel, true)
+			LocomotionProfile.Mode.HOVER:
+				hvel = _move_hover(hvel, dir, delta, accel)
 			_:
 				hvel = _move_free(hvel, dir, delta, accel)
 
@@ -216,6 +223,7 @@ func _physics_process(delta: float) -> void:
 	_was_on_floor = on_floor
 
 	_update_energy(delta)
+	_update_trail(delta)
 	_update_heat(delta)
 	_update_tipping(delta, (hvel - start_hvel) / maxf(delta, 0.0001))
 
@@ -247,6 +255,66 @@ func _move_free(hvel: Vector3, dir: Vector3, delta: float, accel: float) -> Vect
 		# Feet plant: walkers brake much harder than they accelerate.
 		hvel = hvel.move_toward(Vector3.ZERO, maxf(accel * 3.0, 15.0) * delta)
 	return hvel
+
+
+## Hover: slides toward the input in any direction without turning to face
+## it. The robot turns to face the nearest enemy instead (or the way it's
+## drifting if nothing's around). Pads need power: brownout = 40% thrust.
+func _move_hover(hvel: Vector3, dir: Vector3, delta: float, accel: float) -> Vector3:
+	var prof := assembly.locomotion
+	if browned_out:
+		accel *= 0.4
+	if dir.length() > 0.1:
+		var dv := dir * get_top_speed() - hvel
+		hvel += dv.limit_length(accel * delta)
+	else:
+		hvel = hvel.move_toward(Vector3.ZERO, maxf(prof.coast_drag * hvel.length(), 0.2) * delta)
+	var face := Vector3.ZERO
+	if RunState.enemies != null:
+		var i := RunState.enemies.find_nearest(global_position, 18.0)
+		if i >= 0:
+			face = RunState.enemies.pos[i] - global_position
+	if face == Vector3.ZERO and hvel.length() > 1.0:
+		face = hvel
+	face.y = 0.0
+	if face.length_squared() > 0.01:
+		rotation.y = rotate_toward(rotation.y, atan2(-face.x, -face.z), deg_to_rad(get_turn_rate_deg()) * delta)
+	# Gentle bob so it reads as floating.
+	_bob_t += delta
+	assembly.position.y = sin(_bob_t * 2.5) * 0.06
+	return hvel
+
+
+## Trail paths on the drivetrain (fire / oil / static) leave ground patches
+## every so often while moving.
+func _update_trail(_delta: float) -> void:
+	var moved := Vector2(global_position.x - _last_pos.x, global_position.z - _last_pos.z).length()
+	_last_pos = global_position
+	if RunState.hazards == null or not alive or moved > 3.0:
+		return
+	var trail := _trail_params()
+	if trail.is_empty():
+		return
+	_trail_dist += moved
+	if _trail_dist < float(trail.get("trail_spacing", 0.8)):
+		return
+	_trail_dist = 0.0
+	var kind := HazardField.Kind.FIRE
+	match String(trail["trail"]):
+		"oil": kind = HazardField.Kind.OIL
+		"static": kind = HazardField.Kind.STATIC
+	RunState.hazards.spawn(global_position, kind, float(trail.get("trail_radius", 1.1)), float(trail.get("trail_life", 4.0)), float(trail.get("trail_strength", 8.0)))
+
+
+func _trail_params() -> Dictionary:
+	for inst in assembly.locomotion.active_parts:
+		if not is_instance_valid(inst):
+			continue
+		var path := inst.get_chosen_path()
+		var pp: Dictionary = path.get("params", {})
+		if pp.has("trail"):
+			return pp
+	return {}
 
 
 ## Rover / Tank: the robot drives along its heading. Rovers steer like a car

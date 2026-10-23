@@ -32,6 +32,7 @@ enum Drive {
 	LEG,
 	WHEEL,
 	TREAD,
+	HOVER,
 }
 
 enum VisualShape {
@@ -112,6 +113,13 @@ enum VisualShape {
 ## fire_rate...). Negative values shrink (e.g. swing_time). Empty = can't be
 ## upgraded.
 @export var upgrade_per_tier: Dictionary = {}
+## Two branches offered when this part reaches Mk III (PATH_TIER). Each:
+## { "id", "name", "desc", "params": {key: value} }. The chosen path's params
+## override / extend `params` for behaviors (e.g. splash_radius, slow_dur,
+## trail).
+@export var paths: Array[Dictionary] = []
+## Drivetrain parts come as a mirrored pair: one bench item places two.
+@export var paired: bool = false
 
 @export_group("Loot")
 @export var rarity: Rarity = Rarity.COMMON
@@ -153,10 +161,18 @@ func get_socket(socket_name: StringName) -> SocketDef:
 
 
 const MAX_TIER := 5
+const PATH_TIER := 3
 
 
 func can_upgrade() -> bool:
 	return not upgrade_per_tier.is_empty()
+
+
+func find_path(path_id: StringName) -> Dictionary:
+	for p in paths:
+		if StringName(p.get("id", "")) == path_id:
+			return p
+	return {}
 
 
 func fits_type(socket_type: int) -> bool:

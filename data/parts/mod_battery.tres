@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_xaxjn"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_j3yba"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_51my2"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_b17wq"]
 
 [resource]
-script = ExtResource("1_xaxjn")
+script = ExtResource("1_51my2")
 id = &"mod_battery"
 display_name = "Battery Pack"
 category = 4
@@ -33,7 +33,7 @@ turn_rate_deg = 540.0
 attach_type = 2
 alt_attach_types = Array[int]([1])
 attach_size = 1
-sockets = Array[ExtResource("2_j3yba")]([])
+sockets = Array[ExtResource("2_b17wq")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
@@ -41,6 +41,8 @@ tags = PackedStringArray()
 upgrade_per_tier = {
 "energy_capacity": 0.35
 }
+paths = Array[Dictionary]([])
+paired = false
 rarity = 0
 unique = false
 drop_weight = 0.8

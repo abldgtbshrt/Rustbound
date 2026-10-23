@@ -32,6 +32,8 @@ var pending_levelups: int = 0
 var part_tiers: Dictionary = {}
 ## Unique parts already acquired this run (id -> true).
 var uniques_taken: Dictionary = {}
+## Chosen upgrade path per part id (id -> path id).
+var part_paths: Dictionary = {}
 
 ## Detached / unplaced parts ("the bench"). Used by build mode. The cap only
 ## limits new acquisitions; parts you detach always fit.
@@ -45,6 +47,7 @@ var robot: RobotController
 var enemies: EnemyManager
 var projectiles: ProjectilePool
 var pickups: PickupManager
+var hazards: HazardField
 
 
 func begin_new_run(p_seed: int = 0) -> void:
@@ -60,6 +63,7 @@ func begin_new_run(p_seed: int = 0) -> void:
 	inventory.clear()
 	part_tiers.clear()
 	uniques_taken.clear()
+	part_paths.clear()
 	running = true
 	run_started.emit()
 	inventory_changed.emit()
@@ -122,6 +126,26 @@ func upgrade_part(part: PartData) -> bool:
 	part_upgraded.emit(part, t)
 	EventBus.message.emit("%s upgraded to %s" % [part.get_display_name(), PartData.tier_name(t)])
 	return true
+
+
+## True when the next upgrade is the Mk III fork and no path is chosen yet.
+func needs_path_choice(part: PartData) -> bool:
+	return part != null and not part.paths.is_empty() and get_tier(part.id) == PartData.PATH_TIER - 1 \
+		and not part_paths.has(part.id)
+
+
+## Picks a branch and upgrades to Mk III in one go.
+func choose_path(part: PartData, path_id: StringName) -> bool:
+	var p := part.find_path(path_id)
+	if p.is_empty():
+		return false
+	part_paths[part.id] = path_id
+	EventBus.message.emit("%s takes the %s path" % [part.get_display_name(), String(p.get("name", path_id))])
+	return upgrade_part(part)
+
+
+func get_path_id(id: StringName) -> StringName:
+	return part_paths.get(id, &"")
 
 
 ## True if a copy of `part` is on the robot or the bench.

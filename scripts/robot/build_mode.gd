@@ -199,9 +199,9 @@ func rotate_selection(delta_steps: int) -> void:
 		_update_ghost()
 	elif selected_part != null and robot != null and selected_part != robot.assembly.root:
 		robot.assembly.rotate_part(selected_part, delta_steps)
-		# Mirror the rotation onto the twin, if there is one.
-		if mirror:
-			var twin := _find_twin(selected_part)
+		# Mirror the rotation onto the twin (always for paired drivetrains).
+		if mirror or selected_part.data.paired:
+			var twin := robot.assembly.find_twin(selected_part)
 			if twin != null:
 				robot.assembly.rotate_part(twin, -delta_steps)
 	selection_changed.emit()
@@ -215,6 +215,19 @@ func attach_selected(parent: PartInstance, socket_name: StringName) -> bool:
 	if part == null or robot == null:
 		return false
 	var asm := robot.assembly
+	if part.paired:
+		# Drivetrain parts are one bench item = a mirrored pair.
+		var pair := asm.attach_pair(part, parent, socket_name, placement_yaw)
+		if pair.is_empty():
+			EventBus.message.emit("%s needs a matching free socket on the other side" % part.get_display_name())
+			return false
+		RunState.take_from_inventory(selected_bench)
+		EventBus.message.emit("Attached a pair of %s" % part.get_display_name())
+		selected_bench = RunState.inventory.find(part)
+		hovered = {}
+		_rebuild_markers()
+		selection_changed.emit()
+		return true
 	var socket := parent.data.get_socket(socket_name) if parent != null else null
 	var twin_target: Array = []
 	if mirror and socket != null and RunState.inventory.count(part) >= 2:
@@ -246,8 +259,8 @@ func detach_selected() -> bool:
 		return false
 	var inst := selected_part
 	_set_selected_part(null)
-	var removed := robot.assembly.detach(inst)
-	for p in removed:
+	var removed := robot.assembly.detach_with_twin(inst)
+	for p in RobotAssembly.to_bench_items(removed):
 		RunState.add_to_inventory(p, true) # detached parts always fit
 	EventBus.message.emit("Detached %d part(s) to bench" % removed.size())
 	_rebuild_markers()
@@ -262,11 +275,13 @@ func strip_all() -> int:
 		return 0
 	_set_selected_part(null)
 	selected_bench = -1
-	var n := 0
+	var removed: Array[PartData] = []
 	for child in robot.assembly.root.get_child_parts():
-		for p in robot.assembly.detach(child):
-			RunState.add_to_inventory(p, true)
-			n += 1
+		removed.append_array(robot.assembly.detach(child))
+	var items := RobotAssembly.to_bench_items(removed)
+	for p in items:
+		RunState.add_to_inventory(p, true)
+	var n := items.size()
 	EventBus.message.emit("Stripped %d parts to the bench" % n)
 	_rebuild_markers()
 	selection_changed.emit()
@@ -287,7 +302,7 @@ func scrap_selected() -> bool:
 	elif selected_part != null and selected_part != robot.assembly.root:
 		var inst := selected_part
 		_set_selected_part(null)
-		for p in robot.assembly.detach(inst):
+		for p in RobotAssembly.to_bench_items(robot.assembly.detach_with_twin(inst)):
 			total += p.scrap_value
 	else:
 		return false
@@ -379,19 +394,6 @@ func _pressed_key(key: Key) -> bool:
 	return down and not was
 
 
-func _find_twin(inst: PartInstance) -> PartInstance:
-	var robot := RunState.robot
-	var asm := robot.assembly
-	var mine := asm.to_local(inst.global_position)
-	for other in asm.get_all_parts():
-		if other == inst or other.data != inst.data:
-			continue
-		var p := asm.to_local(other.global_position)
-		if p.distance_to(Vector3(-mine.x, mine.y, mine.z)) < 0.06:
-			return other
-	return null
-
-
 func _set_camera_build_view(on: bool) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam != null and cam.get_parent() is CameraRig:
@@ -456,6 +458,8 @@ func _rebuild_markers() -> void:
 	for inst in RunState.robot.assembly.get_all_parts():
 		for s in inst.get_free_sockets():
 			var compatible := sel != null and RobotAssembly.can_fit(sel, s)
+			if compatible and sel.paired and RunState.robot.assembly.find_mirror_socket(sel, inst, s).is_empty():
+				compatible = false
 			if sel != null and not compatible:
 				continue # only show where the selected part can go
 			var mi := MeshInstance3D.new()
