@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_sqcaw"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_536vg"]
 
 [resource]
-script = ExtResource("1_sqcaw")
+script = ExtResource("1_536vg")
 id = &"skitter"
 display_name = "Skitter"
 hp = 12.0
@@ -12,7 +12,7 @@ contact_dps = 10.0
 radius = 0.35
 color = Color(0.85, 0.45, 0.2, 1)
 scrap_value = 1
-part_drop_chance = 0.015
+part_drop_chance = 0.003
 spawn_weight = 1.0
 min_time = 0.0
 weight_per_minute = 0.0

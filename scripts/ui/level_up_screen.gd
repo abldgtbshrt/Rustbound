@@ -135,7 +135,7 @@ func _fill_cards() -> void:
 		var p: PartData = o["part"]
 		var upgrade: bool = o["kind"] == "upgrade"
 		var card := PanelContainer.new()
-		card.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.C_XP if upgrade else p.visual_color))
+		card.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.C_XP if upgrade else PartData.rarity_color(p.rarity)))
 		card.custom_minimum_size = Vector2(250, 300)
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 4)
@@ -149,7 +149,7 @@ func _fill_cards() -> void:
 				v.add_child(UiStyle.label(line, 13, UiStyle.DIM))
 			v.add_child(UiStyle.label("applies to every copy you own", 12, UiStyle.DIM))
 		else:
-			v.add_child(UiStyle.label("NEW PART", 12, UiStyle.ACCENT))
+			v.add_child(UiStyle.label("NEW PART  -  %s" % PartData.rarity_name(p.rarity).to_upper(), 12, PartData.rarity_color(p.rarity)))
 			v.add_child(UiStyle.label("[%d]  %s  %s" % [i + 1, p.get_display_name(), PartData.tier_name(t) if t > 1 else ""], 18))
 			for line in UiStyle.describe_part(p):
 				var l := UiStyle.label(line, 13, UiStyle.DIM)

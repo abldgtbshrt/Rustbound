@@ -31,6 +31,9 @@ func _run() -> void:
 	await _test_build_mode_rework()
 	await _test_upgrades()
 	await _test_energy_and_jets()
+	_test_drive_modes()
+	await _test_drive_feel()
+	await _test_signature_parts()
 	await _bench_horde()
 	print("")
 	print("%d checks, %d failed" % [_checks, _failures])
@@ -105,17 +108,16 @@ func _test_socket_rules() -> void:
 	check(chassis != null, "chassis sits in core socket")
 	check(a.attach(part("loco_wheel"), chassis, &"left_0_0") == null, "wheel rejected on a mount socket")
 	check(a.attach(part("gun_rivet"), a.root.walk()[2], &"mount_shin") == null, "size-2 cannon rejected on size-1 shin mount")
-	var adapter := a.attach(part("adapter_mount_loco"), chassis, &"left_0_0")
-	check(adapter != null, "adapter fits a mount socket")
-	var wheel := a.attach(part("loco_wheel"), adapter, &"loco") if adapter != null else null
-	check(wheel != null, "adapter lets a wheel go on a mount")
-	check(a.locomotion.part_count == 3, "wheel joins the locomotion blend (%d parts)" % a.locomotion.part_count)
+	check(a.attach(part("gun_nail"), chassis, &"left_0_0") != null, "gun on a side cell")
 	check(a.attach(part("gun_nail"), chassis, &"left_0_0") == null, "occupied socket is rejected")
+	var leg := chassis.get_child_in(&"bottom_0_1")
+	var skate := a.attach(part("loco_wheel"), leg, &"foot")
+	check(skate != null, "a wheel fits a leg's foot")
 
 	# Detach removes the subtree.
 	var before := a.part_count
-	var removed := a.detach(adapter)
-	check(removed.size() == 2 and a.part_count == before - 2, "detach removes adapter + wheel")
+	var removed := a.detach(leg)
+	check(removed.size() == 2 and a.part_count == before - 2, "detach removes leg + its wheel")
 
 	# auto_attach fills sockets until none fit.
 	var n := 0
@@ -189,7 +191,7 @@ func _test_arena_loop() -> void:
 	check(shots > 10, "nailgun auto-fired (%d shots)" % shots)
 	check(rs.projectiles.hits > 0, "projectiles hit enemies (%d)" % rs.projectiles.hits)
 	check(rs.kills > 0, "enemies died (%d)" % rs.kills)
-	check(rs.scrap > 0, "scrap collected (%d)" % rs.scrap)
+	check(rs.scrap > 0 or rs.pickups.scrap_count > 0, "kills drop scrap (%d banked, %d on the ground)" % [rs.scrap, rs.pickups.scrap_count])
 	check(robot.global_position.length() > 1.0, "robot moved")
 	check(robot.global_position.y > -0.5 and robot.global_position.y < 1.0, "robot stayed on the ground (y=%.2f)" % robot.global_position.y)
 	scene.queue_free()
@@ -209,14 +211,14 @@ func _test_part_pickup() -> void:
 	rs.pickups.spawn_part(robot.global_position + Vector3(0.5, 0, 0), part("mod_gyro"))
 	for f in 60:
 		await get_tree().physics_frame
-	check(robot.assembly.part_count == before + 1, "walking over a part attaches it (%d -> %d)" % [before, robot.assembly.part_count])
-	check(robot.assembly.stability > gyro_stab, "attached gyro changed stats")
+	check(robot.assembly.part_count == before and rs.inventory.has(part("mod_gyro")), "overworld pickups go to the bench, not onto the robot")
+	check(is_equal_approx(robot.assembly.stability, gyro_stab), "robot unchanged until you place it")
 
 	# A chassis can't attach anywhere (core socket taken) -> goes to the bench.
 	rs.pickups.spawn_part(robot.global_position, part("chassis_tower"))
 	for f in 60:
 		await get_tree().physics_frame
-	check(rs.inventory.size() == 1 and rs.inventory[0].id == &"chassis_tower", "unattachable part goes to the bench")
+	check(rs.inventory.size() == 2 and rs.inventory[1].id == &"chassis_tower", "second pickup also benched")
 	check(rs.pickups.parts.is_empty(), "pickups consumed")
 
 	# Full bench -> salvaged for scrap.
@@ -487,6 +489,10 @@ func _arena() -> Node:
 	rs.enemies.spawn_enabled = false
 	rs.pickups.clear_all()
 	rs.enemies.clear_all()
+	# Flat, empty ground so movement tests don't depend on random obstacles.
+	for o in scene.get_node("Obstacles").get_children():
+		o.queue_free()
+	await get_tree().physics_frame
 	return scene
 
 
@@ -783,6 +789,203 @@ func _test_energy_and_jets() -> void:
 		lift_peak = maxf(lift_peak, robot.global_position.y)
 	Input.action_release("jump")
 	check(lift_peak > 0.8, "legless robot takes off on jets (%.1f m)" % lift_peak)
+	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _test_drive_modes() -> void:
+	print("drive modes and hybrids")
+	var walker := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"]])
+	check(walker.locomotion.mode == LocomotionProfile.Mode.WALKER and walker.locomotion.can_jump, "legs = Walker (jumps)")
+	var rover := make_assembly("chassis_box", [["loco_wheel", "bottom_0_0"], ["loco_wheel", "bottom_1_0"], ["loco_wheel", "bottom_0_2"], ["loco_wheel", "bottom_1_2"]])
+	check(rover.locomotion.mode == LocomotionProfile.Mode.ROVER and not rover.locomotion.can_jump and rover.locomotion.ram > 0.0, "wheels = Rover (no jump, rams)")
+	var tank := make_assembly("chassis_box", [["loco_tread", "bottom_0_1"], ["loco_tread", "bottom_1_1"]])
+	check(tank.locomotion.mode == LocomotionProfile.Mode.TANK and tank.locomotion.anchored and tank.locomotion.crush > 0.0, "treads = Tank (anchored, crushes)")
+	check(rover.locomotion.top_speed > walker.locomotion.top_speed and tank.locomotion.top_speed < walker.locomotion.top_speed, "rover fastest, tank slowest")
+
+	# Skates: wheels on both legs' feet.
+	var sk := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"]])
+	var c := sk.root.get_child_in(&"chassis")
+	for cell in [&"bottom_0_1", &"bottom_1_1"]:
+		sk.attach(part("loco_wheel"), c.get_child_in(cell), &"foot")
+	check(sk.locomotion.mode == LocomotionProfile.Mode.SKATER, "wheels on leg feet = Skater")
+	check(sk.locomotion.can_jump and sk.locomotion.ram > 0.0 and sk.locomotion.stomp > 0.0, "skater jumps, rams and stomps")
+	check(sk.locomotion.top_speed > walker.locomotion.top_speed * 1.4 and sk.locomotion.coast_drag < 1.0, "skater is fast and glides")
+
+	var st := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"]])
+	c = st.root.get_child_in(&"chassis")
+	for cell in [&"bottom_0_1", &"bottom_1_1"]:
+		st.attach(part("loco_tread"), c.get_child_in(cell), &"foot")
+	check(st.locomotion.mode == LocomotionProfile.Mode.STOMPER and st.locomotion.anchored, "treads on leg feet = Stomper")
+	check(st.locomotion.stomp > walker.locomotion.stomp and st.locomotion.crush > 0.0, "stomper stomps harder and crushes")
+
+	# Mixing drive types on the frame: majority drives, the rest idle.
+	var mix := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"], ["loco_wheel", "bottom_0_0"]])
+	check(mix.locomotion.mode == LocomotionProfile.Mode.WALKER and mix.locomotion.idle_parts.size() == 1, "legs + a frame wheel: wheel sits idle")
+	check(mix.locomotion.conflict.contains("Scrap Wheel"), "conflict is reported (%s)" % mix.locomotion.conflict)
+	check(is_equal_approx(mix.locomotion.top_speed, walker.locomotion.top_speed), "idle wheel doesn't change walking speed")
+	for x in [walker, rover, tank, sk, st, mix]:
+		x.free()
+
+
+func _set_drive(robot: RobotController, wheels_on_feet: bool, frame_kind: String) -> void:
+	var c := _chassis(robot)
+	for cell in [&"bottom_0_1", &"bottom_1_1"]:
+		var p := c.get_child_in(cell)
+		if p != null:
+			robot.assembly.detach(p)
+		var inst := robot.assembly.attach(part(frame_kind), c, cell)
+		if wheels_on_feet:
+			robot.assembly.attach(part("loco_wheel"), inst, &"foot")
+
+
+## Drives the robot forward then releases; returns [speed at release,
+## distance coasted after release, sideways speed measured while turning].
+func _drive_sample(robot: RobotController) -> Array:
+	robot.global_position = Vector3(0, 0.1, 25.0) # room to run toward -Z
+	robot.velocity = Vector3.ZERO
+	robot.rotation.y = 0.0
+	for f in 10:
+		await get_tree().physics_frame
+	Input.action_press("move_forward")
+	for f in 120:
+		await get_tree().physics_frame
+	var v0 := Vector2(robot.velocity.x, robot.velocity.z).length()
+	Input.action_release("move_forward")
+	var p0 := robot.global_position
+	for f in 60:
+		await get_tree().physics_frame
+	var coast := robot.global_position.distance_to(p0)
+	return [v0, coast]
+
+
+func _test_drive_feel() -> void:
+	print("drive feel (simulated)")
+	var scene: Node = await _arena()
+	var robot: RobotController = rs.robot
+	robot.base_hp = 1.0e6
+	robot.hp = 1.0e6
+	for b in robot.assembly.get_all_parts():
+		if b.data.id == &"gun_nail":
+			robot.assembly.detach(b)
+	var walk: Array = await _drive_sample(robot)
+	_set_drive(robot, true, "loco_biped_leg")
+	check(robot.assembly.locomotion.mode == LocomotionProfile.Mode.SKATER, "robot is skating")
+	var skate: Array = await _drive_sample(robot)
+	_set_drive(robot, false, "loco_wheel")
+	var rove: Array = await _drive_sample(robot)
+	print("    walker v=%.1f coast=%.1f | skater v=%.1f coast=%.1f | rover v=%.1f coast=%.1f" % [walk[0], walk[1], skate[0], skate[1], rove[0], rove[1]])
+	check(walk[1] < 2.0, "walker stops almost dead when you let go (%.1f m)" % walk[1])
+	check(skate[1] > walk[1] * 4.0 and skate[1] > 3.0, "skater glides on (%.1f m)" % skate[1])
+	check(rove[1] > 3.0, "rover coasts on momentum (%.1f m)" % rove[1])
+	check(skate[0] > walk[0], "skater is faster than walking (%.1f vs %.1f)" % [skate[0], walk[0]])
+
+	# Tank pivots in place before moving.
+	_set_drive(robot, false, "loco_tread")
+	robot.velocity = Vector3.ZERO
+	robot.rotation.y = 0.0
+	for f in 10:
+		await get_tree().physics_frame
+	var p0 := robot.global_position
+	Input.action_press("move_back") # 180° behind it
+	for f in 8:
+		await get_tree().physics_frame
+	var moved_early := robot.global_position.distance_to(p0)
+	for f in 150:
+		await get_tree().physics_frame
+	Input.action_release("move_back")
+	check(moved_early < 0.1, "tank turns in place first (moved %.2f m)" % moved_early)
+	check(robot.global_position.distance_to(p0) > 2.0, "then drives off")
+	scene.queue_free()
+	await get_tree().process_frame
+
+
+func _test_signature_parts() -> void:
+	print("signature parts")
+	var scene: Node = await _arena()
+	var robot: RobotController = rs.robot
+	var em: EnemyManager = rs.enemies
+	var c := _chassis(robot)
+	for p in robot.assembly.get_all_parts():
+		if p.data.id == &"gun_nail" and p.parent_part != null:
+			robot.assembly.detach(p)
+
+	# Uniques leave the pool once owned.
+	var lt := get_node("/root/LootTable")
+	rs.acquire_part(part("sig_tesla_coil"), false)
+	var seen := false
+	for k in 300:
+		seen = seen or lt.roll_part() == part("sig_tesla_coil")
+	check(not seen, "a unique part never drops again once you have it")
+	check(PartData.rarity_name(part("sig_shield_projector").rarity) == "Legendary", "shield projector is legendary")
+
+	# Tesla: chains through a line of enemies.
+	var at := robot.global_position
+	for k in 4:
+		em.spawn(2, at + Vector3(3.0 + 2.5 * k, 0, 0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var tesla := robot.assembly.attach(part("sig_tesla_coil"), c, &"top_1_0")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var hurt := 0
+	for i in em.count:
+		hurt += 1 if em.hp[i] < 70.0 else 0
+	check(hurt >= 3, "tesla arcs through %d enemies" % hurt)
+	robot.assembly.detach(tesla)
+	em.clear_all()
+
+	# Shield: hits from its side cost battery, not HP.
+	var sh := robot.assembly.attach(part("sig_shield_projector"), c, &"left_0_1")
+	await get_tree().physics_frame
+	robot.hp = 100.0
+	robot.energy = robot.get_energy_capacity()
+	var e0 := robot.energy
+	robot.take_damage(20.0, sh.get_facing_global())
+	check(robot.hp == 100.0 and robot.energy < e0, "shield turns damage into battery drain")
+	robot.take_damage(20.0, -sh.get_facing_global())
+	check(robot.hp < 100.0, "hits from behind still land")
+	robot.energy = 0.0
+	robot.hp = 100.0
+	robot.take_damage(20.0, sh.get_facing_global())
+	check(robot.hp < 100.0, "no battery, no shield")
+	robot.assembly.detach(sh)
+
+	# Mortar lobs into a crowd at range.
+	robot.energy = robot.get_energy_capacity()
+	var mortar := robot.assembly.attach(part("sig_mortar"), c, &"top_1_1")
+	var fwd := mortar.get_facing_global()
+	for k in 5:
+		em.spawn(2, robot.global_position + fwd * 12.0 + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)))
+	var mb: MortarBehavior = mortar.behaviors[0]
+	for f in 90:
+		await get_tree().physics_frame
+	hurt = 0
+	for i in em.count:
+		hurt += 1 if em.hp[i] < 70.0 else 0
+	check(mb.shots >= 1 and hurt >= 2, "mortar shell hits a cluster (%d hurt)" % hurt)
+	robot.assembly.detach(mortar)
+	em.clear_all()
+
+	# Magnet pulls a small enemy in.
+	var mag := robot.assembly.attach(part("sig_magnet_arm"), c, &"right_0_1")
+	var mf := mag.get_facing_global()
+	var i := em.spawn(1, mag.global_position + mf * 7.0) # dart, small
+	await get_tree().physics_frame
+	em.enemy_types[1].speed = 0.0 # isolate the pull
+	var d0 := em.pos[i].distance_to(mag.global_position)
+	for f in 30:
+		await get_tree().physics_frame
+	check(em.pos[i].distance_to(mag.global_position) < d0 - 1.5, "magnet arm drags small enemies in")
+	em.enemy_types[1].speed = 6.0
+	robot.assembly.detach(mag)
+	em.clear_all()
+
+	# Scrap Maw: heals on scrap.
+	robot.assembly.attach(part("sig_scrap_maw"), c, &"right_0_1")
+	robot.hp = 50.0
+	EventBus.scrap_collected.emit(10)
+	check(robot.hp > 50.0, "scrap maw repairs from scrap (%.0f)" % robot.hp)
 	scene.queue_free()
 	await get_tree().process_frame
 

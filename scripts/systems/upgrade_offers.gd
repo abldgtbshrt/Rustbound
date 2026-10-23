@@ -7,9 +7,9 @@ extends RefCounted
 ## Each offer: { "kind": "upgrade" | "new", "part": PartData }
 
 ## Chance a card offers a new part at level 2, growing per level.
-const NEW_PART_BASE := 0.12
-const NEW_PART_PER_LEVEL := 0.05
-const NEW_PART_MAX := 0.55
+const NEW_PART_BASE := 0.08
+const NEW_PART_PER_LEVEL := 0.04
+const NEW_PART_MAX := 0.4
 
 
 static func new_part_chance(level: int) -> float:
@@ -69,6 +69,11 @@ static func describe_upgrade(part: PartData) -> PackedStringArray:
 			continue
 		var a := part.scaled(String(key), base, t)
 		var b := part.scaled(String(key), base, t + 1)
+		if part.params.get(key) is int or String(key) == "cpu_output":
+			a = round(a)
+			b = round(b)
+			if a == b:
+				continue # whole-number stat that only ticks up every other Mk
 		out.append("%s  %s -> %s" % [String(key).replace("_", " "), _fmt(a), _fmt(b)])
 	return out
 

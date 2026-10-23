@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/utility/rotator.gd" id="1_aq1kh"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_3h6dg"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_hf1ro"]
+[ext_resource type="Script" path="res://scripts/behaviors/utility/rotator.gd" id="1_il0uo"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_g4uly"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_fs4xp"]
 
-[sub_resource type="Resource" id="Resource_gcn4l"]
-script = ExtResource("3_hf1ro")
+[sub_resource type="Resource" id="Resource_t8vfb"]
+script = ExtResource("3_fs4xp")
 marker_name = &"platter"
 type = 1
 size = 2
@@ -15,8 +15,8 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_7fycx"]
-script = ExtResource("3_hf1ro")
+[sub_resource type="Resource" id="Resource_qjl6r"]
+script = ExtResource("3_fs4xp")
 marker_name = &"rim_l"
 type = 1
 size = 1
@@ -26,8 +26,8 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_ov3tn"]
-script = ExtResource("3_hf1ro")
+[sub_resource type="Resource" id="Resource_t3l0j"]
+script = ExtResource("3_fs4xp")
 marker_name = &"rim_r"
 type = 1
 size = 1
@@ -38,7 +38,7 @@ grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("2_3h6dg")
+script = ExtResource("2_g4uly")
 id = &"util_rotator"
 display_name = "Rotator"
 category = 3
@@ -57,6 +57,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -66,9 +67,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("3_hf1ro")]([SubResource("Resource_gcn4l"), SubResource("Resource_7fycx"), SubResource("Resource_ov3tn")])
+sockets = Array[ExtResource("3_fs4xp")]([SubResource("Resource_t8vfb"), SubResource("Resource_qjl6r"), SubResource("Resource_t3l0j")])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_aq1kh")])
+behaviors = Array[Script]([ExtResource("1_il0uo")])
 params = {
 "spin_deg_per_sec": 120.0
 }
@@ -77,6 +78,8 @@ upgrade_per_tier = {
 "hp": 0.3,
 "spin_deg_per_sec": 0.2
 }
+rarity = 1
+unique = false
 drop_weight = 0.6
 scrap_value = 5
 visual_shape = 1

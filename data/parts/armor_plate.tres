@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_44cby"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_us4et"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_brkn7"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_3vx75"]
 
 [resource]
-script = ExtResource("1_44cby")
+script = ExtResource("1_brkn7")
 id = &"armor_plate"
 display_name = "Armor Plate"
 category = 3
@@ -23,6 +23,7 @@ heat_dissipation = 0.0
 armor_block = 0.6
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -32,7 +33,7 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_us4et")]([])
+sockets = Array[ExtResource("2_3vx75")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
@@ -41,6 +42,8 @@ upgrade_per_tier = {
 "armor_block": 0.06,
 "hp": 0.35
 }
+rarity = 0
+unique = false
 drop_weight = 0.8
 scrap_value = 5
 visual_shape = 0

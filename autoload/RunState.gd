@@ -30,12 +30,14 @@ var pending_levelups: int = 0
 
 ## Upgrade tier per part id (missing = Mk I). Every copy of a part shares it.
 var part_tiers: Dictionary = {}
+## Unique parts already acquired this run (id -> true).
+var uniques_taken: Dictionary = {}
 
 ## Detached / unplaced parts ("the bench"). Used by build mode. The cap only
 ## limits new acquisitions; parts you detach always fit.
 var inventory: Array[PartData] = []
-## When true, new parts attach to the best free socket automatically and only
-## go to the bench if nothing fits.
+## When true, parts taken from level-up cards attach to the best free socket
+## automatically. Overworld pickups always go to the bench.
 var auto_install: bool = true
 
 # Registered by the systems themselves in _ready / cleared in _exit_tree.
@@ -57,6 +59,7 @@ func begin_new_run(p_seed: int = 0) -> void:
 	pending_levelups = 0
 	inventory.clear()
 	part_tiers.clear()
+	uniques_taken.clear()
 	running = true
 	run_started.emit()
 	inventory_changed.emit()
@@ -140,12 +143,14 @@ func acquire_part(part: PartData, try_install: bool = true, merge_duplicates: bo
 		return Acquired.SALVAGED
 	if merge_duplicates and owns_part(part) and upgrade_part(part):
 		return Acquired.UPGRADED
+	if part.unique:
+		uniques_taken[part.id] = true
 	if try_install and auto_install and robot != null and robot.alive:
 		if robot.assembly.auto_attach(part) != null:
 			EventBus.message.emit("Attached %s" % part.get_display_name())
 			return Acquired.ATTACHED
 	if add_to_inventory(part):
-		EventBus.message.emit("%s added to bench (Tab to build)" % part.get_display_name())
+		EventBus.message.emit("%s added to the bench (Tab to build)" % part.get_display_name())
 		return Acquired.BENCH
 	add_scrap(part.scrap_value)
 	EventBus.message.emit("Bench full: %s salvaged +%d scrap" % [part.get_display_name(), part.scrap_value])

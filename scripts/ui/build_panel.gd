@@ -17,6 +17,7 @@ var _auto_check: CheckBox
 var _mirror_check: CheckBox
 var _rot_label: Label
 var _title: Label
+var _drive: Label
 
 
 func _ready() -> void:
@@ -56,6 +57,9 @@ func _build_ui() -> void:
 	var help := UiStyle.label("Pick a bench part, hover a socket, Q/E rotate,\nclick to place. Click the robot to select a part.\nPink CoM, green footprint, cyan links,\norange weapon arcs, blue armor. [Tab] fight", 12, UiStyle.DIM)
 	col.add_child(help)
 
+	_drive = UiStyle.label("", 13, UiStyle.C_TILT)
+	_drive.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_drive)
 	col.add_child(UiStyle.label("BENCH", 14, UiStyle.TEXT))
 	_bench_list = VBoxContainer.new()
 	_bench_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -92,7 +96,7 @@ func _build_ui() -> void:
 	col.add_child(strip)
 
 	_auto_check = CheckBox.new()
-	_auto_check.text = "Auto-install new parts"
+	_auto_check.text = "Auto-install level-up parts"
 	_auto_check.focus_mode = Control.FOCUS_NONE
 	_auto_check.button_pressed = RunState.auto_install
 	_auto_check.toggled.connect(func(on: bool) -> void: RunState.auto_install = on)
@@ -120,6 +124,7 @@ func _refresh() -> void:
 		b.toggle_mode = true
 		b.button_pressed = i == build_mode.selected_bench
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.add_theme_color_override("font_color", PartData.rarity_color(p.rarity))
 		b.pressed.connect(build_mode.select_bench.bind(i))
 		_bench_list.add_child(b)
 
@@ -151,6 +156,12 @@ func _refresh() -> void:
 	_scrap_btn.text = "Scrap (+%d)" % sel_data.scrap_value if sel_data != null else "Scrap"
 	_auto_check.set_pressed_no_signal(RunState.auto_install)
 	_mirror_check.set_pressed_no_signal(build_mode.mirror)
+	if RunState.robot != null:
+		var prof := RunState.robot.assembly.locomotion
+		_drive.text = "DRIVE: %s" % prof.mode_name().to_upper()
+		if prof.conflict != "":
+			_drive.text += "\nConflicting drive: " + prof.conflict
+		_drive.add_theme_color_override("font_color", UiStyle.C_BAD if prof.conflict != "" else UiStyle.C_TILT)
 	_title.text = "BUILD MODE  (%s)" % ("paused" if build_mode.pause_world else "%d%% time" % int(build_mode.time_scale * 100.0))
 	var yaw := build_mode.placement_yaw
 	if on_robot:

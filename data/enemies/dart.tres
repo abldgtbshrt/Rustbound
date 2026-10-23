@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_ofqrc"]
+[ext_resource type="Script" path="res://scripts/data/enemy_data.gd" id="1_wbrmv"]
 
 [resource]
-script = ExtResource("1_ofqrc")
+script = ExtResource("1_wbrmv")
 id = &"dart"
 display_name = "Dart"
 hp = 6.0
@@ -12,7 +12,7 @@ contact_dps = 6.0
 radius = 0.25
 color = Color(0.95, 0.85, 0.25, 1)
 scrap_value = 1
-part_drop_chance = 0.01
+part_drop_chance = 0.002
 spawn_weight = 0.3
 min_time = 90.0
 weight_per_minute = 0.1

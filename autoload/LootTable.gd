@@ -78,5 +78,11 @@ func roll_part_id(rng: RandomNumberGenerator, context: Dictionary = {}) -> Strin
 	return p.id if p != null else &""
 
 
+## Rarer parts drop less; uniques you already have never come back.
+const RARITY_WEIGHT := [1.0, 0.35, 0.12]
+
+
 func _weight(p: PartData, _context: Dictionary) -> float:
-	return maxf(p.drop_weight, 0.0)
+	if p.unique and RunState.uniques_taken.has(p.id):
+		return 0.0
+	return maxf(p.drop_weight, 0.0) * RARITY_WEIGHT[clampi(p.rarity, 0, 2)]

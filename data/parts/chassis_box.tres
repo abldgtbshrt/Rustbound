@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=11 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_ed1f2"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_iiry0"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_h1vba"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_vv3aa"]
 
-[sub_resource type="Resource" id="Resource_7ds7n"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_w3h1e"]
+script = ExtResource("2_vv3aa")
 marker_name = &"top"
 type = 1
 size = 2
@@ -14,8 +14,8 @@ grid = Vector2i(3, 2)
 grid_u = Vector3(0.38, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_05tao"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_gpqhu"]
+script = ExtResource("2_vv3aa")
 marker_name = &"left"
 type = 1
 size = 2
@@ -25,8 +25,8 @@ grid = Vector2i(2, 2)
 grid_u = Vector3(0, 0, 0.45)
 grid_v = Vector3(0, 0.3, 0)
 
-[sub_resource type="Resource" id="Resource_ovau8"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_6ch03"]
+script = ExtResource("2_vv3aa")
 marker_name = &"right"
 type = 1
 size = 2
@@ -36,8 +36,8 @@ grid = Vector2i(2, 2)
 grid_u = Vector3(0, 0, 0.45)
 grid_v = Vector3(0, 0.3, 0)
 
-[sub_resource type="Resource" id="Resource_s0ao6"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_ns755"]
+script = ExtResource("2_vv3aa")
 marker_name = &"front"
 type = 1
 size = 1
@@ -47,8 +47,8 @@ grid = Vector2i(2, 1)
 grid_u = Vector3(0.55, 0, 0)
 grid_v = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_ei0a4"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_3r4wg"]
+script = ExtResource("2_vv3aa")
 marker_name = &"back"
 type = 1
 size = 1
@@ -58,8 +58,8 @@ grid = Vector2i(2, 1)
 grid_u = Vector3(0.55, 0, 0)
 grid_v = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_jduwm"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_y35x2"]
+script = ExtResource("2_vv3aa")
 marker_name = &"bottom"
 type = 3
 size = 2
@@ -69,8 +69,8 @@ grid = Vector2i(2, 3)
 grid_u = Vector3(0.9, 0, 0)
 grid_v = Vector3(0, 0, 0.35)
 
-[sub_resource type="Resource" id="Resource_eeuiq"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_yw8s6"]
+script = ExtResource("2_vv3aa")
 marker_name = &"internal"
 type = 2
 size = 1
@@ -80,8 +80,8 @@ grid = Vector2i(2, 1)
 grid_u = Vector3(0, 0, 0.5)
 grid_v = Vector3(0, 0, 0)
 
-[sub_resource type="Resource" id="Resource_jhxhg"]
-script = ExtResource("2_iiry0")
+[sub_resource type="Resource" id="Resource_t6y6i"]
+script = ExtResource("2_vv3aa")
 marker_name = &"head"
 type = 0
 size = 1
@@ -92,7 +92,7 @@ grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("1_ed1f2")
+script = ExtResource("1_h1vba")
 id = &"chassis_box"
 display_name = "Box Chassis"
 category = 1
@@ -111,6 +111,7 @@ heat_dissipation = 0.0
 armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
+drive = 0
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -120,7 +121,7 @@ turn_rate_deg = 540.0
 attach_type = 0
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("2_iiry0")]([SubResource("Resource_7ds7n"), SubResource("Resource_05tao"), SubResource("Resource_ovau8"), SubResource("Resource_s0ao6"), SubResource("Resource_ei0a4"), SubResource("Resource_jduwm"), SubResource("Resource_eeuiq"), SubResource("Resource_jhxhg")])
+sockets = Array[ExtResource("2_vv3aa")]([SubResource("Resource_w3h1e"), SubResource("Resource_gpqhu"), SubResource("Resource_6ch03"), SubResource("Resource_ns755"), SubResource("Resource_3r4wg"), SubResource("Resource_y35x2"), SubResource("Resource_yw8s6"), SubResource("Resource_t6y6i")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
@@ -128,6 +129,8 @@ tags = PackedStringArray()
 upgrade_per_tier = {
 "hp": 0.35
 }
+rarity = 0
+unique = false
 drop_weight = 0.0
 scrap_value = 5
 visual_shape = 0
