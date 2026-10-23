@@ -39,7 +39,7 @@ func on_tick(delta: float) -> void:
 	var fx := hit_fx()
 	var hit := 0
 	for i in enemies.query_radius(origin, reach + 1.0):
-		var to := enemies.pos[i] - origin
+		var to := enemies.get_pos(i) - origin
 		to.y = 0.0
 		var d := to.length()
 		if d > reach + enemies.get_radius(i):
@@ -52,6 +52,7 @@ func on_tick(delta: float) -> void:
 	if hit == 0:
 		return
 	swings += 1
+	fired()
 	robot.add_heat(float(param("heat_per_swing", 2.0)) * asm.get_mod(part, "heat_mult"))
 	_cooldown = swing_time
 	_anim = 0.0

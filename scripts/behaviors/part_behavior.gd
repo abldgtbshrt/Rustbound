@@ -47,6 +47,12 @@ func hit_fx() -> Dictionary:
 	return out
 
 
+## Weapons call this when they shoot/swing/zap, for sound and feedback.
+func fired() -> void:
+	if part != null:
+		EventBus.weapon_fired.emit(part.data.id, part.global_position)
+
+
 func on_attached() -> void:
 	pass
 

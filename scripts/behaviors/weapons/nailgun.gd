@@ -66,7 +66,7 @@ func on_tick(delta: float) -> void:
 		var idx := enemies.find_nearest(origin, max_range, fwd, cos(deg_to_rad(arc_deg * 0.5)))
 		if idx < 0:
 			return
-		var target := enemies.pos[idx]
+		var target := enemies.get_pos(idx)
 		dir = (target - origin).normalized()
 	else:
 		if enemies.find_nearest(origin, max_range, fwd, cos(deg_to_rad(60.0))) < 0:
@@ -79,4 +79,5 @@ func on_tick(delta: float) -> void:
 	robot.apply_recoil(-Vector3(dir.x, 0.0, dir.z) * recoil)
 	robot.add_heat(heat_per_shot)
 	shots_fired += 1
+	fired()
 	_cooldown = 1.0 / maxf(fire_rate, 0.01)

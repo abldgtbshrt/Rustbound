@@ -44,7 +44,7 @@ func on_tick(delta: float) -> void:
 	var dmg := float(param("bite_damage", 10.0)) * robot.assembly.get_mod(part, "damage_mult")
 	var bit := false
 	for i in enemies.query_radius(origin, reach + 1.0):
-		var to := enemies.pos[i] - origin
+		var to := enemies.get_pos(i) - origin
 		to.y = 0.0
 		var d := to.length()
 		if d > reach + enemies.get_radius(i) or (d > 0.05 and fwd.dot(to / d) < cos_half):

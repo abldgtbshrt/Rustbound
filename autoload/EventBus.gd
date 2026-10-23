@@ -37,6 +37,9 @@ signal enemy_killed(enemy: EnemyData, position: Vector3)
 signal scrap_collected(amount: int)
 @warning_ignore("unused_signal")
 signal loot_spawned(position: Vector3)
+## A weapon part fired (shot, swing, zap, flame tick).
+@warning_ignore("unused_signal")
+signal weapon_fired(part_id: StringName, position: Vector3)
 ## For on-screen feedback ("Attached Nailgun", "Brownout!").
 @warning_ignore("unused_signal")
 signal message(text: String)

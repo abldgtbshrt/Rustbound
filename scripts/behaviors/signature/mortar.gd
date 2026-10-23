@@ -38,21 +38,22 @@ func on_tick(delta: float) -> void:
 	var best := -1
 	var best_n := -1
 	for i in enemies.query_radius(origin, max_r):
-		var to := enemies.pos[i] - origin
+		var to := enemies.get_pos(i) - origin
 		to.y = 0.0
 		var d := to.length()
 		if d < min_r or fwd.dot(to / d) < cos_half:
 			continue
-		var n := enemies.query_radius(enemies.pos[i], float(param("radius", 2.5))).size()
+		var n := enemies.query_radius(enemies.get_pos(i), float(param("radius", 2.5))).size()
 		if n > best_n:
 			best_n = n
 			best = i
 	if best < 0:
 		return
-	_launch(origin + Vector3(0, 0.4, 0), enemies.pos[best])
+	_launch(origin + Vector3(0, 0.4, 0), enemies.get_pos(best))
 	robot.add_heat(float(param("heat_per_shot", 4.0)) * robot.assembly.get_mod(part, "heat_mult"))
 	robot.apply_recoil(-fwd * 1.5)
 	shots += 1
+	fired()
 	_cooldown = float(param("interval", 1.6)) / maxf(robot.assembly.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)
 
 

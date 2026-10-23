@@ -63,9 +63,10 @@ func on_tick(delta: float) -> void:
 		var i := enemies.find_nearest(d.global_position, float(param("range", 10.0)) * asm.get_mod(part, "range_mult"))
 		if i < 0:
 			continue
-		var to := enemies.pos[i] + Vector3(0, 0.3, 0) - d.global_position
+		var to := enemies.get_pos(i) + Vector3(0, 0.3, 0) - d.global_position
 		var speed := 24.0
 		pool.fire(d.global_position, to.normalized() * speed, float(param("damage", 6.0)) * asm.get_mod(part, "damage_mult"),
 			to.length() / speed * 1.3 + 0.1, 0.25, 0, 0.8, Color(1.0, 0.9, 0.3), hit_fx())
 		shots += 1
+		fired()
 		_cooldowns[k] = float(param("fire_interval", 0.5)) / maxf(asm.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)

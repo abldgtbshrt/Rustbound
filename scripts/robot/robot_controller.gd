@@ -276,7 +276,7 @@ func _move_hover(hvel: Vector3, dir: Vector3, delta: float, accel: float) -> Vec
 	if RunState.enemies != null:
 		var i := RunState.enemies.find_nearest(global_position, 18.0)
 		if i >= 0:
-			face = RunState.enemies.pos[i] - global_position
+			face = RunState.enemies.get_pos(i) - global_position
 	if face == Vector3.ZERO and hvel.length() > 1.0:
 		face = hvel
 	face.y = 0.0
@@ -424,12 +424,12 @@ func handle_enemy_contact(em: EnemyManager, i: int, to_enemy: Vector3, delta: fl
 	var t := em.get_data(i)
 	var hspeed := Vector2(velocity.x, velocity.z).length()
 
-	if prof.ram > 0.0 and hspeed >= ram_min_speed and em.cooldown[i] <= 0.0:
+	if prof.ram > 0.0 and hspeed >= ram_min_speed and em.get_cooldown(i) <= 0.0:
 		var moving_at := Vector3(velocity.x, 0.0, velocity.z).normalized().dot(to_enemy.normalized()) > 0.3
 		if moving_at:
 			var dmg := hspeed * get_mass() * ram_damage_factor * minf(prof.ram, 2.0)
 			em.damage(i, dmg, Vector3(velocity.x, 0.0, velocity.z) * 1.2 + Vector3.UP)
-			em.cooldown[i] = ram_cooldown
+			em.set_cooldown(i, ram_cooldown)
 			velocity.x *= 0.92
 			velocity.z *= 0.92
 

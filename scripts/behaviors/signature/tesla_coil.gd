@@ -47,27 +47,28 @@ func on_tick(delta: float) -> void:
 	var dmg := float(param("damage", 14.0)) * robot.assembly.get_mod(part, "damage_mult")
 	var chain_range := float(param("chain_range", 3.5))
 	var hit: Array[int] = [first]
-	var points: Array[Vector3] = [origin, enemies.pos[first]]
+	var points: Array[Vector3] = [origin, enemies.get_pos(first)]
 	var current := first
 	for k in int(param("chains", 4)):
 		var best := -1
 		var best_d := chain_range
-		for j in enemies.query_radius(enemies.pos[current], chain_range):
+		for j in enemies.query_radius(enemies.get_pos(current), chain_range):
 			if hit.has(j):
 				continue
-			var d := enemies.pos[j].distance_to(enemies.pos[current])
+			var d := enemies.get_pos(j).distance_to(enemies.get_pos(current))
 			if d < best_d:
 				best_d = d
 				best = j
 		if best < 0:
 			break
 		hit.append(best)
-		points.append(enemies.pos[best])
+		points.append(enemies.get_pos(best))
 		current = best
 	for i in hit:
 		enemies.damage(i, dmg)
 	robot.add_heat(float(param("heat_per_zap", 1.5)) * robot.assembly.get_mod(part, "heat_mult"))
 	zaps += 1
+	fired()
 	_draw(points)
 	_cooldown = float(param("interval", 0.9)) / maxf(robot.assembly.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)
 

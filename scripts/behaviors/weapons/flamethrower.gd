@@ -74,7 +74,7 @@ func on_tick(delta: float) -> void:
 	var dmg := float(param("dps", 40.0)) * asm.get_mod(part, "damage_mult") * 0.1
 	var fx := hit_fx()
 	for i in enemies.query_radius(origin, reach + 0.5):
-		var to := enemies.pos[i] - origin
+		var to := enemies.get_pos(i) - origin
 		to.y = 0.0
 		var d := to.length()
 		if d > reach + enemies.get_radius(i) or (d > 0.1 and fwd.dot(to / d) < cos_half):
@@ -82,6 +82,7 @@ func on_tick(delta: float) -> void:
 		enemies.damage(i, dmg)
 		enemies.apply_hit_fx(i, fx)
 	ticks += 1
+	fired()
 
 
 func _draw_cone(on: bool, reach: float, arc: float) -> void:

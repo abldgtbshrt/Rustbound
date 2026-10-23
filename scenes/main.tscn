@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Shader" path="res://shaders/ps2_post.gdshader" id="2_post"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/ui/build_panel.gd" id="5_panel"]
 [ext_resource type="Script" path="res://scripts/ui/level_up_screen.gd" id="6_lvl"]
 [ext_resource type="Script" path="res://scripts/ui/chassis_select.gd" id="7_chassis"]
+[ext_resource type="Script" path="res://scripts/ui/pause_menu.gd" id="8_pause"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_post"]
 shader = ExtResource("2_post")
@@ -51,3 +52,6 @@ script = ExtResource("6_lvl")
 
 [node name="ChassisSelect" type="CanvasLayer" parent="."]
 script = ExtResource("7_chassis")
+
+[node name="PauseMenu" type="CanvasLayer" parent="."]
+script = ExtResource("8_pause")

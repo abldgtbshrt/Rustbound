@@ -20,9 +20,9 @@ func on_tick(delta: float) -> void:
 	for i in enemies.query_radius(origin, reach):
 		if enemies.get_radius(i) > max_r:
 			continue
-		var to := enemies.pos[i] - origin
+		var to := enemies.get_pos(i) - origin
 		to.y = 0.0
 		var d := to.length()
 		if d < 0.8 or fwd.dot(to / d) < cos_half:
 			continue
-		enemies.pos[i] -= (to / d) * speed * delta
+		enemies.set_pos(i, enemies.get_pos(i) - (to / d) * speed * delta)
