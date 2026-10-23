@@ -105,7 +105,10 @@ enum VisualShape {
 @export var behaviors: Array[Script] = []
 ## Free-form tuning values read by behaviors (fire_rate, damage, range...).
 @export var params: Dictionary = {}
-@export var tags: PackedStringArray = []
+## Default must be PackedStringArray(), not []: in the Godot 4.3 editor a
+## non-tool script's placeholder treats `= []` as an untyped Array and wipes
+## the tags when the editor re-saves the .tres.
+@export var tags: PackedStringArray = PackedStringArray()
 
 @export_group("Upgrades")
 ## Per-tier growth: key -> fraction added per Mk above I. Keys are PartData
