@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_othv8"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_rfa2x"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_nid4s"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_i560d"]
 
 [resource]
-script = ExtResource("1_othv8")
+script = ExtResource("1_nid4s")
 id = &"loco_wheel"
 display_name = "Scrap Wheel"
 category = 2
@@ -17,8 +17,12 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+energy_capacity = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 11.0
 thrust = 22.0
 grip = 0.35
@@ -26,12 +30,22 @@ jump_force = 0.0
 mass_capacity = 5.0
 turn_rate_deg = 360.0
 attach_type = 3
+alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_rfa2x")]([])
+sockets = Array[ExtResource("2_i560d")]([])
 component_slots = 1
 behaviors = Array[Script]([])
-params = {}
+params = {
+"ram": 0.5
+}
 tags = PackedStringArray()
+upgrade_per_tier = {
+"hp": 0.3,
+"mass_capacity": 0.15,
+"ram": 0.3,
+"thrust": 0.12,
+"top_speed": 0.08
+}
 drop_weight = 0.9
 scrap_value = 5
 visual_shape = 1

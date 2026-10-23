@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_nrxt8"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_5yd55"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_44cby"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_us4et"]
 
 [resource]
-script = ExtResource("1_nrxt8")
+script = ExtResource("1_44cby")
 id = &"armor_plate"
 display_name = "Armor Plate"
 category = 3
@@ -17,8 +17,12 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+energy_capacity = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.6
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -26,12 +30,17 @@ jump_force = 0.0
 mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 1
+alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_5yd55")]([])
+sockets = Array[ExtResource("2_us4et")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
 tags = PackedStringArray()
+upgrade_per_tier = {
+"armor_block": 0.06,
+"hp": 0.35
+}
 drop_weight = 0.8
 scrap_value = 5
 visual_shape = 0

@@ -1,18 +1,21 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_sbywm"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_nnr4b"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_g6wjc"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_tfubv"]
 
-[sub_resource type="Resource" id="Resource_qthnb"]
-script = ExtResource("2_nnr4b")
+[sub_resource type="Resource" id="Resource_felgm"]
+script = ExtResource("2_tfubv")
 marker_name = &"loco"
 type = 3
 size = 1
 position = Vector3(0, -0.15, 0)
 rotation_degrees = Vector3(0, 0, 0)
+grid = Vector2i(1, 1)
+grid_u = Vector3(0.4, 0, 0)
+grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("1_sbywm")
+script = ExtResource("1_g6wjc")
 id = &"adapter_mount_loco"
 display_name = "Mount-to-Leg Adapter"
 category = 6
@@ -25,8 +28,12 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+energy_capacity = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -34,12 +41,14 @@ jump_force = 0.0
 mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 1
+alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_nnr4b")]([SubResource("Resource_qthnb")])
+sockets = Array[ExtResource("2_tfubv")]([SubResource("Resource_felgm")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}
 tags = PackedStringArray()
+upgrade_per_tier = {}
 drop_weight = 0.5
 scrap_value = 5
 visual_shape = 0

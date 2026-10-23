@@ -9,6 +9,7 @@ enum Category {
 	MODULE,
 	HEAD,
 	ADAPTER,
+	FRAME,
 }
 
 enum SocketType {
@@ -45,10 +46,24 @@ enum VisualShape {
 @export var pickup_radius: float = 0.0
 ## Added to the robot's tip resistance (gyros). 0.5 = 50% harder to tip.
 @export var stability: float = 0.0
+## Extra energy the battery pool can hold.
+@export var energy_capacity: float = 0.0
 ## Extra heat the robot can hold before overheating.
 @export var heat_capacity: float = 0.0
 ## Extra heat shed per second.
 @export var heat_dissipation: float = 0.0
+
+@export_group("Armor")
+## Fraction of incoming damage blocked when the hit comes from inside this
+## part's facing arc. Several plates covering the same side stack.
+@export_range(0.0, 0.95) var armor_block: float = 0.0
+@export var armor_arc_deg: float = 120.0
+
+@export_group("Links")
+## Multipliers this part gives to every part linked to it (touching it, or its
+## direct parent/child). Keys: fire_rate_mult, heat_mult, range_mult,
+## spread_mult, damage_mult.
+@export var neighbor_mods: Dictionary = {}
 
 @export_group("Locomotion")
 @export var top_speed: float = 0.0
@@ -63,6 +78,8 @@ enum VisualShape {
 
 @export_group("Attachment")
 @export var attach_type: SocketType = SocketType.STRUCTURAL
+## Other socket types this part also fits (e.g. reactors on Internal or Mount).
+@export var alt_attach_types: Array[int] = []
 @export_range(1, 3, 1) var attach_size: int = 1
 @export var sockets: Array[SocketDef] = []
 
@@ -72,6 +89,13 @@ enum VisualShape {
 ## Free-form tuning values read by behaviors (fire_rate, damage, range...).
 @export var params: Dictionary = {}
 @export var tags: PackedStringArray = []
+
+@export_group("Upgrades")
+## Per-tier growth: key -> fraction added per Mk above I. Keys are PartData
+## properties (hp, power_output, thrust...) or params keys (damage,
+## fire_rate...). Negative values shrink (e.g. swing_time). Empty = can't be
+## upgraded.
+@export var upgrade_per_tier: Dictionary = {}
 
 @export_group("Loot")
 ## 0 = never drops from enemies.
@@ -87,11 +111,61 @@ enum VisualShape {
 @export var visual_color: Color = Color(0.6, 0.6, 0.6)
 
 
+var _expanded: Array[SocketDef] = []
+var _expanded_built := false
+
+
+## All socket cells, with hardpoint grids expanded.
+func get_sockets() -> Array[SocketDef]:
+	if not _expanded_built:
+		_expanded.clear()
+		for s in sockets:
+			if s != null:
+				_expanded.append_array(s.expand())
+		_expanded_built = true
+	return _expanded
+
+
 func get_socket(socket_name: StringName) -> SocketDef:
-	for s in sockets:
+	for s in get_sockets():
 		if s.marker_name == socket_name:
 			return s
 	return null
+
+
+const MAX_TIER := 5
+
+
+func can_upgrade() -> bool:
+	return not upgrade_per_tier.is_empty()
+
+
+func fits_type(socket_type: int) -> bool:
+	return int(attach_type) == socket_type or alt_attach_types.has(socket_type)
+
+
+## A stat at `tier` (1 = Mk I). `base` is the Mk I value.
+func scaled(key: String, base: float, tier: int) -> float:
+	var frac := float(upgrade_per_tier.get(key, 0.0))
+	if frac == 0.0 or tier <= 1:
+		return base
+	return base * maxf(1.0 + frac * float(tier - 1), 0.1)
+
+
+## Mk I value of a property or param, for display.
+func base_value(key: String) -> float:
+	if params.has(key):
+		return float(params[key])
+	var v: Variant = get(key)
+	return float(v) if (v is float or v is int) else 0.0
+
+
+static func tier_name(tier: int) -> String:
+	return "Mk " + ["I", "II", "III", "IV", "V"][clampi(tier, 1, MAX_TIER) - 1]
+
+
+func is_weapon() -> bool:
+	return params.has("damage")
 
 
 func get_display_name() -> String:

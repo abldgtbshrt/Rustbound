@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_7new5"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_4kmfq"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_mdm6a"]
+[ext_resource type="Script" path="res://scripts/behaviors/weapons/nailgun.gd" id="1_3m01g"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_vve1k"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_4d53b"]
 
 [resource]
-script = ExtResource("2_4kmfq")
+script = ExtResource("2_vve1k")
 id = &"gun_nail"
 display_name = "Nailgun"
 category = 3
@@ -18,8 +18,12 @@ power_output = 0.0
 cpu_output = 0
 pickup_radius = 0.0
 stability = 0.0
+energy_capacity = 0.0
 heat_capacity = 0.0
 heat_dissipation = 0.0
+armor_block = 0.0
+armor_arc_deg = 120.0
+neighbor_mods = {}
 top_speed = 0.0
 thrust = 0.0
 grip = 1.0
@@ -27,12 +31,13 @@ jump_force = 0.0
 mass_capacity = 0.0
 turn_rate_deg = 540.0
 attach_type = 1
+alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("3_mdm6a")]([])
+sockets = Array[ExtResource("3_4d53b")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_7new5")])
+behaviors = Array[Script]([ExtResource("1_3m01g")])
 params = {
-"arc_deg": 200.0,
+"arc_deg": 120.0,
 "damage": 9.0,
 "fire_rate": 4.0,
 "heat_per_shot": 1.5,
@@ -45,6 +50,12 @@ params = {
 "spread_deg": 3.0
 }
 tags = PackedStringArray()
+upgrade_per_tier = {
+"damage": 0.25,
+"fire_rate": 0.12,
+"hp": 0.3,
+"range": 0.05
+}
 drop_weight = 1.2
 scrap_value = 5
 visual_shape = 0

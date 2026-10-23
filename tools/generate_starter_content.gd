@@ -54,6 +54,10 @@ func _sock(n: String, t: int, pos: Vector3, size: int = 1, rot: Vector3 = Vector
 	return SocketDef.make(StringName(n), t, pos, size, rot)
 
 
+func _grid(n: String, t: int, pos: Vector3, g: Vector2i, u: Vector3, v: Vector3, size: int = 1, rot: Vector3 = Vector3.ZERO) -> SocketDef:
+	return SocketDef.make_grid(StringName(n), t, pos, g, u, v, size, rot)
+
+
 func _parts() -> Array[PartData]:
 	var out: Array[PartData] = []
 
@@ -67,6 +71,7 @@ func _parts() -> Array[PartData]:
 	core.component_slots = 2
 	_vis(core, PartData.VisualShape.SPHERE, Vector3(0.6, 0.6, 0.6), Vector3.ZERO, Color(0.95, 0.55, 0.15))
 	core.sockets = [_sock("chassis", STRUCT, Vector3.ZERO, 2)]
+	core.upgrade_per_tier = {"hp": 0.25, "power_output": 0.2, "cpu_output": 0.25}
 	out.append(core)
 
 	# --- Chassis -------------------------------------------------------------
@@ -75,18 +80,19 @@ func _parts() -> Array[PartData]:
 	box.hp = 40.0
 	box.drop_weight = 0.0
 	_vis(box, PartData.VisualShape.BOX, Vector3(1.2, 0.7, 1.0), Vector3.ZERO, Color(0.55, 0.52, 0.45))
+	# Hardpoint grids on every face. Side/front/back cells face outward by
+	# default; the player can rotate whatever goes on them.
 	box.sockets = [
-		_sock("loco_l", LOCO, Vector3(-0.45, -0.35, 0.0), 2),
-		_sock("loco_r", LOCO, Vector3(0.45, -0.35, 0.0), 2),
-		_sock("loco_front", LOCO, Vector3(0.0, -0.35, -0.4), 2),
-		_sock("loco_back", LOCO, Vector3(0.0, -0.35, 0.4), 2),
-		_sock("mount_top", MOUNT, Vector3(0.0, 0.35, 0.15), 2),
-		_sock("mount_l", MOUNT, Vector3(-0.6, 0.1, 0.0), 2, Vector3(0, 50, 0)),
-		_sock("mount_r", MOUNT, Vector3(0.6, 0.1, 0.0), 2, Vector3(0, -50, 0)),
-		_sock("internal_a", INTERNAL, Vector3(0.0, 0.0, 0.25), 1),
-		_sock("internal_b", INTERNAL, Vector3(0.0, 0.0, -0.25), 1),
-		_sock("head", STRUCT, Vector3(0.0, 0.35, -0.3), 1),
+		_grid("top", MOUNT, Vector3(0.0, 0.35, 0.05), Vector2i(3, 2), Vector3(0.38, 0, 0), Vector3(0, 0, 0.4), 2),
+		_grid("left", MOUNT, Vector3(-0.6, 0.0, 0.0), Vector2i(2, 2), Vector3(0, 0, 0.45), Vector3(0, 0.3, 0), 2, Vector3(0, 90, 0)),
+		_grid("right", MOUNT, Vector3(0.6, 0.0, 0.0), Vector2i(2, 2), Vector3(0, 0, 0.45), Vector3(0, 0.3, 0), 2, Vector3(0, -90, 0)),
+		_grid("front", MOUNT, Vector3(0.0, 0.0, -0.5), Vector2i(2, 1), Vector3(0.55, 0, 0), Vector3.ZERO, 1),
+		_grid("back", MOUNT, Vector3(0.0, 0.0, 0.5), Vector2i(2, 1), Vector3(0.55, 0, 0), Vector3.ZERO, 1, Vector3(0, 180, 0)),
+		_grid("bottom", LOCO, Vector3(0.0, -0.35, 0.0), Vector2i(2, 3), Vector3(0.9, 0, 0), Vector3(0, 0, 0.35), 2),
+		_grid("internal", INTERNAL, Vector3.ZERO, Vector2i(2, 1), Vector3(0, 0, 0.5), Vector3.ZERO, 1),
+		_sock("head", STRUCT, Vector3(0.0, 0.35, -0.45), 1),
 	]
+	box.upgrade_per_tier = {"hp": 0.35}
 	out.append(box)
 
 	var tower := _part("chassis_tower", "Tower Chassis", PartData.Category.CHASSIS, STRUCT, 2)
@@ -95,15 +101,15 @@ func _parts() -> Array[PartData]:
 	tower.drop_weight = 0.0
 	_vis(tower, PartData.VisualShape.BOX, Vector3(0.7, 1.8, 0.7), Vector3(0, 0.5, 0), Color(0.5, 0.48, 0.55))
 	tower.sockets = [
-		_sock("loco_l", LOCO, Vector3(-0.3, -0.4, 0.0), 2),
-		_sock("loco_r", LOCO, Vector3(0.3, -0.4, 0.0), 2),
-		_sock("mount_top", MOUNT, Vector3(0.0, 1.4, 0.1), 2),
-		_sock("mount_l", MOUNT, Vector3(-0.4, 1.1, 0.0), 2, Vector3(0, 50, 0)),
-		_sock("mount_r", MOUNT, Vector3(0.4, 1.1, 0.0), 2, Vector3(0, -50, 0)),
-		_sock("internal_a", INTERNAL, Vector3(0.0, 0.3, 0.0), 1),
-		_sock("internal_b", INTERNAL, Vector3(0.0, 0.8, 0.0), 1),
+		_sock("top", MOUNT, Vector3(0.0, 1.4, 0.1), 2),
+		_grid("left", MOUNT, Vector3(-0.35, 0.6, 0.0), Vector2i(1, 3), Vector3.ZERO, Vector3(0, 0.45, 0), 2, Vector3(0, 90, 0)),
+		_grid("right", MOUNT, Vector3(0.35, 0.6, 0.0), Vector2i(1, 3), Vector3.ZERO, Vector3(0, 0.45, 0), 2, Vector3(0, -90, 0)),
+		_grid("front", MOUNT, Vector3(0.0, 0.6, -0.35), Vector2i(1, 2), Vector3.ZERO, Vector3(0, 0.6, 0), 1),
+		_grid("bottom", LOCO, Vector3(0.0, -0.4, 0.0), Vector2i(2, 1), Vector3(0.6, 0, 0), Vector3.ZERO, 2),
+		_grid("internal", INTERNAL, Vector3(0.0, 0.5, 0.0), Vector2i(1, 2), Vector3.ZERO, Vector3(0, 0.5, 0), 1),
 		_sock("head", STRUCT, Vector3(0.0, 1.4, -0.2), 1),
 	]
+	tower.upgrade_per_tier = {"hp": 0.35}
 	out.append(tower)
 
 	# --- Locomotion (all ~0.8 m tall so mixed builds stand level) ------------
@@ -117,8 +123,11 @@ func _parts() -> Array[PartData]:
 	leg.mass_capacity = 6.0
 	leg.turn_rate_deg = 540.0
 	leg.drop_weight = 1.0
+	leg.tags = PackedStringArray(["leg"])
+	leg.params = {"stomp": 1.0} # slam on landing
 	_vis(leg, PartData.VisualShape.BOX, Vector3(0.25, 0.8, 0.45), Vector3(0, -0.4, 0), Color(0.4, 0.45, 0.5))
 	leg.sockets = [_sock("mount_shin", MOUNT, Vector3(0.0, -0.35, -0.25), 1)]
+	leg.upgrade_per_tier = {"thrust": 0.12, "top_speed": 0.06, "mass_capacity": 0.15, "jump_force": 0.06, "stomp": 0.25, "hp": 0.3}
 	out.append(leg)
 
 	var wheel := _part("loco_wheel", "Scrap Wheel", PartData.Category.LOCOMOTION, LOCO, 1)
@@ -131,7 +140,9 @@ func _parts() -> Array[PartData]:
 	wheel.mass_capacity = 5.0
 	wheel.turn_rate_deg = 360.0
 	wheel.drop_weight = 0.9
+	wheel.params = {"ram": 0.5} # ram damage scales with speed
 	_vis(wheel, PartData.VisualShape.CYLINDER, Vector3(0.8, 0.3, 0.8), Vector3(0, -0.4, 0), Color(0.2, 0.2, 0.22), Vector3(0, 0, 90))
+	wheel.upgrade_per_tier = {"thrust": 0.12, "top_speed": 0.08, "mass_capacity": 0.15, "ram": 0.3, "hp": 0.3}
 	out.append(wheel)
 
 	var tread := _part("loco_tread", "Tread Unit", PartData.Category.LOCOMOTION, LOCO, 2)
@@ -144,7 +155,9 @@ func _parts() -> Array[PartData]:
 	tread.turn_rate_deg = 200.0
 	tread.drop_weight = 0.6
 	tread.tags = PackedStringArray(["anchored"])
+	tread.params = {"crush": 1.0} # grinds small enemies
 	_vis(tread, PartData.VisualShape.BOX, Vector3(0.45, 0.8, 1.3), Vector3(0, -0.4, 0), Color(0.3, 0.3, 0.28))
+	tread.upgrade_per_tier = {"thrust": 0.12, "mass_capacity": 0.2, "crush": 0.3, "hp": 0.3}
 	out.append(tread)
 
 	# --- Weapons -------------------------------------------------------------
@@ -157,7 +170,9 @@ func _parts() -> Array[PartData]:
 	nail.behaviors = [load(NAILGUN)]
 	nail.params = {"fire_rate": 4.0, "damage": 9.0, "range": 16.0, "speed": 32.0, "arc_deg": 200.0,
 		"spread_deg": 3.0, "recoil": 0.6, "pierce": 0, "knockback": 1.5, "muzzle": 0.55, "heat_per_shot": 1.5}
+	nail.params["arc_deg"] = 120.0
 	_vis(nail, PartData.VisualShape.BOX, Vector3(0.18, 0.18, 0.6), Vector3(0, 0.12, -0.2), Color(0.45, 0.55, 0.65))
+	nail.upgrade_per_tier = {"damage": 0.25, "fire_rate": 0.12, "range": 0.05, "hp": 0.3}
 	out.append(nail)
 
 	var rivet := _part("gun_rivet", "Rivet Cannon", PartData.Category.MOUNT, MOUNT, 2)
@@ -169,7 +184,9 @@ func _parts() -> Array[PartData]:
 	rivet.behaviors = [load(NAILGUN)]
 	rivet.params = {"fire_rate": 1.2, "damage": 40.0, "range": 20.0, "speed": 26.0, "arc_deg": 120.0,
 		"spread_deg": 0.5, "recoil": 9.0, "pierce": 3, "knockback": 6.0, "muzzle": 0.8, "heat_per_shot": 9.0}
+	rivet.params["arc_deg"] = 70.0
 	_vis(rivet, PartData.VisualShape.BOX, Vector3(0.3, 0.3, 0.9), Vector3(0, 0.18, -0.3), Color(0.6, 0.35, 0.25))
+	rivet.upgrade_per_tier = {"damage": 0.3, "fire_rate": 0.1, "hp": 0.3}
 	out.append(rivet)
 
 	# --- Modules / head / armor / adapter ------------------------------------
@@ -177,31 +194,44 @@ func _parts() -> Array[PartData]:
 	gyro.mass = 0.6
 	gyro.power_draw = 1.0
 	gyro.stability = 0.6
+	# Active gyro: faster turning, 65% shorter knockdowns that end in a shockwave,
+	# and it steadies the aim of linked weapons.
+	gyro.params = {"turn_rate_mult": 1.3, "recover_time_mult": 0.35, "recover_pulse": 30.0}
+	gyro.neighbor_mods = {"spread_mult": 0.4}
 	gyro.drop_weight = 0.8
 	_vis(gyro, PartData.VisualShape.SPHERE, Vector3(0.3, 0.3, 0.3), Vector3.ZERO, Color(0.3, 0.8, 0.9))
+	gyro.upgrade_per_tier = {"stability": 0.3, "recover_pulse": 0.4, "turn_rate_mult": 0.05}
 	out.append(gyro)
 
 	var reactor := _part("mod_reactor", "Reactor", PartData.Category.MODULE, INTERNAL, 1)
 	reactor.mass = 1.8
 	reactor.power_output = 8.0
 	reactor.heat_per_sec = 2.0
+	reactor.alt_attach_types = [MOUNT] # bolt it on anywhere, not just inside
+	reactor.neighbor_mods = {"fire_rate_mult": 1.3, "heat_mult": 1.3} # overclocks neighbours
 	reactor.drop_weight = 0.8
 	_vis(reactor, PartData.VisualShape.CYLINDER, Vector3(0.35, 0.4, 0.35), Vector3.ZERO, Color(0.4, 0.9, 0.4))
+	reactor.upgrade_per_tier = {"power_output": 0.3}
 	out.append(reactor)
 
 	var sink := _part("mod_heat_sink", "Heat Sink", PartData.Category.MODULE, INTERNAL, 1)
 	sink.mass = 1.0
 	sink.heat_capacity = 40.0
 	sink.heat_dissipation = 6.0
+	sink.neighbor_mods = {"heat_mult": 0.5}
 	sink.drop_weight = 0.8
 	_vis(sink, PartData.VisualShape.BOX, Vector3(0.4, 0.3, 0.3), Vector3.ZERO, Color(0.75, 0.75, 0.8))
+	sink.upgrade_per_tier = {"heat_capacity": 0.3, "heat_dissipation": 0.3}
 	out.append(sink)
 
 	var armor := _part("armor_plate", "Armor Plate", PartData.Category.MOUNT, MOUNT, 1)
 	armor.mass = 2.0
 	armor.hp = 40.0
+	armor.armor_block = 0.6
+	armor.armor_arc_deg = 120.0
 	armor.drop_weight = 0.8
 	_vis(armor, PartData.VisualShape.BOX, Vector3(0.6, 0.6, 0.1), Vector3(0, 0.1, 0), Color(0.5, 0.5, 0.42))
+	armor.upgrade_per_tier = {"hp": 0.35, "armor_block": 0.06}
 	out.append(armor)
 
 	var head := _part("head_sensor", "Sensor Head", PartData.Category.HEAD, STRUCT, 1)
@@ -209,8 +239,10 @@ func _parts() -> Array[PartData]:
 	head.hp = 5.0
 	head.pickup_radius = 3.0
 	head.cpu_output = 1
+	head.neighbor_mods = {"range_mult": 1.25}
 	head.drop_weight = 0.6
 	_vis(head, PartData.VisualShape.BOX, Vector3(0.4, 0.3, 0.35), Vector3(0, 0.15, 0), Color(0.85, 0.8, 0.3))
+	head.upgrade_per_tier = {"pickup_radius": 0.3, "cpu_output": 0.5}
 	out.append(head)
 
 	var adapter := _part("adapter_mount_loco", "Mount-to-Leg Adapter", PartData.Category.ADAPTER, MOUNT, 1)
@@ -219,6 +251,106 @@ func _parts() -> Array[PartData]:
 	_vis(adapter, PartData.VisualShape.BOX, Vector3(0.25, 0.25, 0.25), Vector3.ZERO, Color(0.7, 0.4, 0.7))
 	adapter.sockets = [_sock("loco", LOCO, Vector3(0.0, -0.15, 0.0), 1)]
 	out.append(adapter)
+
+	# --- Power & mobility -------------------------------------------------------
+	var battery := _part("mod_battery", "Battery Pack", PartData.Category.MODULE, INTERNAL, 1)
+	battery.alt_attach_types = [MOUNT]
+	battery.mass = 0.8
+	battery.hp = 5.0
+	battery.energy_capacity = 40.0
+	battery.drop_weight = 0.8
+	_vis(battery, PartData.VisualShape.BOX, Vector3(0.3, 0.35, 0.25), Vector3(0, 0.12, 0), Color(0.3, 0.7, 0.95))
+	battery.upgrade_per_tier = {"energy_capacity": 0.35}
+	out.append(battery)
+
+	var jet := _part("util_jet", "Jump Jet", PartData.Category.MOUNT, MOUNT, 1)
+	jet.alt_attach_types = [LOCO]
+	jet.mass = 0.8
+	jet.hp = 8.0
+	jet.drop_weight = 0.9
+	jet.behaviors = [load("res://scripts/behaviors/utility/jet.gd")]
+	# Hold jump in the air to thrust: lift = total jet_thrust / mass (gravity 20).
+	jet.params = {"jet_thrust": 140.0, "jet_energy": 10.0}
+	_vis(jet, PartData.VisualShape.CYLINDER, Vector3(0.26, 0.45, 0.26), Vector3(0, -0.05, 0), Color(0.35, 0.33, 0.3))
+	jet.upgrade_per_tier = {"jet_thrust": 0.2}
+	out.append(jet)
+
+	# --- Frame: shape the robot -----------------------------------------------
+	var strut := _part("frame_strut", "Strut", PartData.Category.FRAME, MOUNT, 1)
+	strut.mass = 0.6
+	strut.hp = 8.0
+	strut.drop_weight = 1.0
+	strut.scrap_value = 3
+	_vis(strut, PartData.VisualShape.BOX, Vector3(0.14, 0.14, 1.0), Vector3(0, 0, -0.5), Color(0.62, 0.55, 0.42))
+	strut.sockets = [
+		_sock("end", MOUNT, Vector3(0.0, 0.0, -1.0), 2),
+		_sock("under", LOCO, Vector3(0.0, -0.07, -0.85), 2),
+		_sock("side_l", MOUNT, Vector3(-0.07, 0.0, -0.5), 1, Vector3(0, 90, 0)),
+		_sock("side_r", MOUNT, Vector3(0.07, 0.0, -0.5), 1, Vector3(0, -90, 0)),
+	]
+	strut.upgrade_per_tier = {"hp": 0.4}
+	out.append(strut)
+
+	var mast := _part("frame_mast", "Mast", PartData.Category.FRAME, MOUNT, 1)
+	mast.mass = 0.8
+	mast.hp = 8.0
+	mast.drop_weight = 0.8
+	mast.scrap_value = 3
+	# Built upright regardless of the face it sits on: the visual goes up the
+	# socket's +Y, which is always up.
+	_vis(mast, PartData.VisualShape.BOX, Vector3(0.14, 1.2, 0.14), Vector3(0, 0.6, 0), Color(0.62, 0.55, 0.42))
+	mast.sockets = [
+		_sock("top", MOUNT, Vector3(0.0, 1.2, 0.0), 2),
+		_sock("crow", STRUCT, Vector3(0.0, 1.1, -0.12), 1),
+		_sock("mid_l", MOUNT, Vector3(-0.07, 0.6, 0.0), 1, Vector3(0, 90, 0)),
+		_sock("mid_r", MOUNT, Vector3(0.07, 0.6, 0.0), 1, Vector3(0, -90, 0)),
+	]
+	mast.upgrade_per_tier = {"hp": 0.4}
+	out.append(mast)
+
+	var hub := _part("frame_hub", "Junction Hub", PartData.Category.FRAME, MOUNT, 1)
+	hub.mass = 0.5
+	hub.hp = 10.0
+	hub.drop_weight = 0.8
+	hub.scrap_value = 3
+	_vis(hub, PartData.VisualShape.BOX, Vector3(0.3, 0.3, 0.3), Vector3(0, 0, -0.15), Color(0.68, 0.6, 0.45))
+	hub.sockets = [
+		_sock("front", MOUNT, Vector3(0.0, 0.0, -0.3), 2),
+		_sock("left", MOUNT, Vector3(-0.15, 0.0, -0.15), 2, Vector3(0, 90, 0)),
+		_sock("right", MOUNT, Vector3(0.15, 0.0, -0.15), 2, Vector3(0, -90, 0)),
+		_sock("top", MOUNT, Vector3(0.0, 0.15, -0.15), 2),
+		_sock("under", LOCO, Vector3(0.0, -0.15, -0.15), 2),
+	]
+	hub.upgrade_per_tier = {"hp": 0.4}
+	out.append(hub)
+
+	var rotator := _part("util_rotator", "Rotator", PartData.Category.MOUNT, MOUNT, 2)
+	rotator.mass = 1.2
+	rotator.hp = 10.0
+	rotator.power_draw = 1.0
+	rotator.drop_weight = 0.6
+	rotator.behaviors = [load("res://scripts/behaviors/utility/rotator.gd")]
+	rotator.params = {"spin_deg_per_sec": 120.0}
+	_vis(rotator, PartData.VisualShape.CYLINDER, Vector3(0.6, 0.15, 0.6), Vector3(0, 0.08, 0), Color(0.45, 0.5, 0.6))
+	rotator.sockets = [
+		_sock("platter", MOUNT, Vector3(0.0, 0.16, 0.0), 2),
+		_sock("rim_l", MOUNT, Vector3(-0.3, 0.08, 0.0), 1, Vector3(0, 90, 0)),
+		_sock("rim_r", MOUNT, Vector3(0.3, 0.08, 0.0), 1, Vector3(0, -90, 0)),
+	]
+	rotator.upgrade_per_tier = {"spin_deg_per_sec": 0.2, "hp": 0.3}
+	out.append(rotator)
+
+	var sword := _part("melee_chain_sword", "Chain Sword Arm", PartData.Category.MOUNT, MOUNT, 2)
+	sword.mass = 2.0
+	sword.hp = 15.0
+	sword.power_draw = 2.0
+	sword.drop_weight = 0.8
+	sword.behaviors = [load("res://scripts/behaviors/weapons/chain_sword.gd")]
+	sword.params = {"damage": 22.0, "reach": 2.4, "arc_deg": 110.0, "swing_time": 0.5,
+		"knockback": 5.0, "heat_per_swing": 2.0}
+	_vis(sword, PartData.VisualShape.BOX, Vector3(0.14, 0.1, 1.4), Vector3(0, 0.1, -0.75), Color(0.75, 0.3, 0.25))
+	sword.upgrade_per_tier = {"damage": 0.3, "swing_time": -0.08, "reach": 0.05, "hp": 0.3}
+	out.append(sword)
 
 	return out
 

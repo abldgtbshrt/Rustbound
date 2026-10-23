@@ -17,6 +17,21 @@ extends CharacterBody3D
 @export var base_pickup_radius: float = 2.5
 @export var base_hp: float = 50.0
 
+@export_group("Energy")
+## Battery size before Battery parts. Surplus power charges it; deficits and
+## jets drain it. Empty = brownout.
+@export var base_energy_capacity: float = 40.0
+## Max weapon fire-rate bonus when the battery is full and power is spare.
+@export var max_overcharge: float = 0.5
+## Movement speed while browned out.
+@export var brownout_speed_mult: float = 0.7
+## Brownout clears once the battery refills to this fraction.
+@export var brownout_recover_frac: float = 0.15
+
+@export_group("Jets")
+## Upward speed cap while thrusting.
+@export var jet_max_rise_speed: float = 7.0
+
 @export_group("Heat")
 @export var base_heat_capacity: float = 100.0
 ## Cooling while standing still. Moving adds airflow cooling on top.
@@ -26,6 +41,18 @@ extends CharacterBody3D
 @export var overheat_dps: float = 3.0
 ## Overheat clears once heat drops below this fraction of capacity.
 @export var overheat_recover_frac: float = 0.8
+
+@export_group("Locomotion attacks")
+## Leg stomp on landing: damage = fall speed x mass x this (x stomp power).
+@export var stomp_damage_factor: float = 0.45
+@export var stomp_min_fall_speed: float = 3.0
+## Wheel ram: damage = speed x mass x this (x ram power) per hit.
+@export var ram_damage_factor: float = 0.3
+@export var ram_min_speed: float = 3.5
+@export var ram_cooldown: float = 0.5
+## Tread crush: damage per second (x crush power) to enemies this small or smaller.
+@export var crush_dps: float = 60.0
+@export var crush_max_enemy_radius: float = 0.45
 
 @export_group("Vent")
 ## Shift dumps all heat as a scalding blast around the robot.
@@ -54,6 +81,13 @@ var alive: bool = true
 var tip_ratio: float = 0.0
 var is_knocked_down: bool = false
 
+var energy: float = 0.0
+## Power stalled: battery empty while drawing more than you generate.
+var browned_out: bool = false
+## Net power this frame (generation - draw - jets), per second.
+var power_net: float = 0.0
+var is_jetting: bool = false
+
 var heat: float = 0.0
 var is_overheated: bool = false
 ## Seconds until the vent is ready again.
@@ -64,6 +98,7 @@ var _tip_timer := 0.0
 var _knockdown_t := 0.0
 var _knockdown_axis := Vector3.RIGHT
 var _was_on_floor := true
+var _fall_speed := 0.0
 
 
 func _ready() -> void:
@@ -71,6 +106,7 @@ func _ready() -> void:
 	assembly.assembly_changed.connect(_on_assembly_changed)
 	assembly.build(self)
 	hp = max_hp
+	energy = get_energy_capacity()
 
 
 func _exit_tree() -> void:
@@ -89,7 +125,28 @@ func get_load_ratio() -> float:
 ## 1.0 when within capacity, 0.0 at double capacity (can't move).
 func get_speed_multiplier() -> float:
 	var load := get_load_ratio()
-	return 1.0 if load <= 1.0 else clampf(2.0 - load, 0.0, 1.0)
+	var m := 1.0 if load <= 1.0 else clampf(2.0 - load, 0.0, 1.0)
+	return m * (brownout_speed_mult if browned_out else 1.0)
+
+
+func get_energy_capacity() -> float:
+	return base_energy_capacity + assembly.energy_capacity
+
+
+## Fire-rate multiplier for weapons: up to 1 + max_overcharge when the battery
+## is full and generation exceeds draw. Spare power is never wasted.
+func get_overcharge_mult() -> float:
+	if browned_out or energy < get_energy_capacity() - 0.01:
+		return 1.0
+	var spare := assembly.power_gen - assembly.power_draw
+	if spare <= 0.0:
+		return 1.0
+	return 1.0 + max_overcharge * clampf(spare / maxf(assembly.power_gen, 1.0), 0.0, 1.0)
+
+
+## 0..1: how much of their demand powered parts get. 1 unless browned out.
+func get_power_supply() -> float:
+	return assembly.get_power_ratio() if browned_out else 1.0
 
 
 func get_top_speed() -> float:
@@ -138,33 +195,127 @@ func _physics_process(delta: float) -> void:
 		var speed_frac := clampf(hvel.length() / maxf(prof.top_speed, 0.1), 0.0, 1.0)
 		hvel += side * drift_factor * speed_frac * delta * 4.0
 
-	# Face the direction of travel at the locomotion's turn rate.
+	# Face the direction of travel. Turn speed comes from the locomotion,
+	# slowed by mass far from the center (inertia), sped up by gyros.
 	if dir.length() > 0.1:
 		var target_yaw := atan2(-dir.x, -dir.z)
-		rotation.y = rotate_toward(rotation.y, target_yaw, deg_to_rad(prof.turn_rate_deg) * delta)
+		rotation.y = rotate_toward(rotation.y, target_yaw, deg_to_rad(get_turn_rate_deg()) * delta)
 
 	velocity.x = hvel.x
 	velocity.z = hvel.z
 
 	if not is_on_floor():
 		velocity.y -= gravity * delta
-	elif alive and not is_knocked_down and prof.can_jump and Input.is_action_just_pressed("jump"):
-		velocity.y = prof.jump_force / sqrt(maxf(get_load_ratio(), 1.0))
+	elif Input.is_action_just_pressed("jump"):
+		try_jump()
+	_update_jets(delta, Input.is_action_pressed("jump"))
 
+	if not is_on_floor():
+		_fall_speed = maxf(_fall_speed, -velocity.y)
 	move_and_slide()
 
 	var on_floor := is_on_floor()
 	if on_floor and not _was_on_floor:
+		if alive and _fall_speed >= stomp_min_fall_speed and prof.stomp > 0.0:
+			stomp(_fall_speed)
 		for b in assembly.get_all_behaviors():
 			b.on_land()
+	if on_floor:
+		_fall_speed = 0.0
 	_was_on_floor = on_floor
 
+	_update_energy(delta)
 	_update_heat(delta)
 	_update_tipping(delta, (hvel - start_hvel) / maxf(delta, 0.0001))
 
 	if alive:
 		for b in assembly.get_all_behaviors():
 			b.on_tick(delta)
+
+
+## Jets fire while jump is held: in the air, or from the ground if the robot
+## can't jump. Thrust / mass lifts you; each jet burns battery energy.
+func _update_jets(delta: float, holding: bool) -> void:
+	var asm := assembly
+	var want := holding and alive and not is_knocked_down and asm.jet_thrust > 0.0 and energy > 0.0 and not browned_out
+	if want and is_on_floor() and asm.locomotion.can_jump and velocity.y <= 0.01:
+		want = false # legs jump first; jets take over once airborne
+	is_jetting = want
+	if not want:
+		return
+	var lift := asm.jet_thrust / get_mass()
+	velocity.y = minf(velocity.y + lift * delta, jet_max_rise_speed)
+
+
+func _update_energy(delta: float) -> void:
+	var asm := assembly
+	var jet_draw := asm.jet_energy_per_sec if is_jetting else 0.0
+	power_net = asm.power_gen - asm.power_draw - jet_draw
+	var cap := get_energy_capacity()
+	energy = clampf(energy + power_net * delta, 0.0, cap)
+	if not browned_out and energy <= 0.0 and power_net < 0.0:
+		browned_out = true
+		EventBus.robot_brownout.emit()
+		for b in asm.get_all_behaviors():
+			b.on_brownout()
+	elif browned_out and (energy >= cap * brownout_recover_frac or power_net >= 0.0 and energy > 0.0):
+		browned_out = false
+		EventBus.robot_power_restored.emit()
+
+
+## Jumps if on the floor with jump-capable locomotion. Heavier = lower.
+func try_jump() -> bool:
+	var prof := assembly.locomotion
+	if not alive or is_knocked_down or not prof.can_jump or not is_on_floor():
+		return false
+	velocity.y = prof.jump_force / sqrt(maxf(get_load_ratio(), 1.0))
+	return true
+
+
+func get_turn_rate_deg() -> float:
+	return assembly.locomotion.turn_rate_deg * assembly.turn_factor
+
+
+## Leg slam on landing. Heavier robots and longer falls hit harder.
+## Returns enemies hit.
+func stomp(fall_speed: float) -> int:
+	var prof := assembly.locomotion
+	var power := minf(prof.stomp, 2.0)
+	var dmg := fall_speed * get_mass() * stomp_damage_factor * power
+	var radius := minf(1.6 + 0.12 * get_mass(), 5.0)
+	var hits := 0
+	if RunState.enemies != null:
+		hits = RunState.enemies.damage_radius(global_position, radius, dmg, 6.0)
+	VentEffect.spawn(get_parent(), global_position - Vector3(0, 0.5, 0), radius, Color(0.85, 0.75, 0.55, 0.8))
+	EventBus.robot_stomped.emit(dmg, hits)
+	return hits
+
+
+## Called by EnemyManager for each enemy touching the robot. Applies ram and
+## crush, then the enemy's contact damage (reduced by armor facing it).
+## `to_enemy` points from the robot to the enemy.
+func handle_enemy_contact(em: EnemyManager, i: int, to_enemy: Vector3, delta: float) -> void:
+	if not alive:
+		return
+	var prof := assembly.locomotion
+	var t := em.get_data(i)
+	var hspeed := Vector2(velocity.x, velocity.z).length()
+
+	if prof.ram > 0.0 and hspeed >= ram_min_speed and em.cooldown[i] <= 0.0:
+		var moving_at := Vector3(velocity.x, 0.0, velocity.z).normalized().dot(to_enemy.normalized()) > 0.3
+		if moving_at:
+			var dmg := hspeed * get_mass() * ram_damage_factor * minf(prof.ram, 2.0)
+			em.damage(i, dmg, Vector3(velocity.x, 0.0, velocity.z) * 1.2 + Vector3.UP)
+			em.cooldown[i] = ram_cooldown
+			velocity.x *= 0.92
+			velocity.z *= 0.92
+
+	if prof.crush > 0.0 and t.radius <= crush_max_enemy_radius:
+		em.damage(i, crush_dps * prof.crush * delta)
+		return # it's under your treads, not biting you
+
+	if em.is_alive(i):
+		take_damage(t.contact_dps * delta, to_enemy)
 
 
 func get_heat_capacity() -> float:
@@ -203,20 +354,8 @@ func vent() -> int:
 
 	var radius := get_vent_radius(amount)
 	var hits := 0
-	var enemies := RunState.enemies
-	if enemies != null:
-		var origin := global_position
-		for i in enemies.query_radius(origin, radius + 1.0):
-			var to := enemies.pos[i] - origin
-			to.y = 0.0
-			var d := to.length()
-			var reach := radius + enemies.get_radius(i)
-			if d > reach:
-				continue
-			var falloff := lerpf(1.0, 0.5, clampf(d / reach, 0.0, 1.0))
-			var push := (to / maxf(d, 0.01)) * vent_knockback
-			enemies.damage(i, amount * vent_damage_per_heat * falloff, push)
-			hits += 1
+	if RunState.enemies != null:
+		hits = RunState.enemies.damage_radius(global_position, radius, amount * vent_damage_per_heat, vent_knockback)
 	VentEffect.spawn(get_parent(), global_position, radius)
 	EventBus.robot_vented.emit(amount, hits)
 	return hits
@@ -260,6 +399,10 @@ func _update_tipping(delta: float, raw_accel: Vector3) -> void:
 			is_knocked_down = false
 			assembly.basis = Basis.IDENTITY
 			_accel_smoothed = Vector3.ZERO
+			if assembly.recover_pulse > 0.0 and RunState.enemies != null:
+				# Gyros fling the robot upright with a shockwave.
+				RunState.enemies.damage_radius(global_position, 3.5, assembly.recover_pulse, 8.0)
+				VentEffect.spawn(get_parent(), global_position, 3.5, Color(0.4, 0.9, 1.0, 0.8))
 			EventBus.robot_recovered.emit()
 		return
 
@@ -289,7 +432,7 @@ func _update_tipping(delta: float, raw_accel: Vector3) -> void:
 
 func _fall_over(axis: Vector3) -> void:
 	is_knocked_down = true
-	_knockdown_t = knockdown_time
+	_knockdown_t = knockdown_time * assembly.recover_time_mult
 	_knockdown_axis = axis if axis.length() > 0.01 else Vector3.RIGHT
 	_tip_timer = 0.0
 	tip_ratio = 0.0
@@ -305,9 +448,12 @@ func apply_recoil(impulse: Vector3) -> void:
 	velocity.z += impulse.z * scale / get_mass()
 
 
-func take_damage(amount: float) -> void:
+## `from_dir` (robot -> attacker, world) lets armor facing that way block.
+func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	if not alive or amount <= 0.0:
 		return
+	if from_dir != Vector3.ZERO:
+		amount *= 1.0 - assembly.armor_block_for(from_dir)
 	hp -= amount
 	EventBus.robot_damaged.emit(amount)
 	for b in assembly.get_all_behaviors():
