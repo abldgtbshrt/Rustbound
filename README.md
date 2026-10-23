@@ -38,7 +38,7 @@ Godot 4 prototype of a PS2-style, survivors-like roguelike where you build your 
 - **Jump Jets**: hold Space in the air to thrust (lift = total jet thrust / mass, gravity is 20), burning 10 energy/s per jet. Two jets on the starter lift it ~10 m; heavy robots need more. Robots without legs can take off on jets alone. Higher falls also mean bigger leg stomps.
 - **Budgets**: CPU (weapons without CPU fire straight ahead), HP summed from parts.
 - **Nailgun / Rivet Cannon**: auto-firing, mount arcs limit what they can target, recoil pushes the robot.
-- **Horde**: MultiMesh enemies in packed arrays with a spatial hash, ramping waves, 3 enemy types. ~600 enemies in GDScript.
+- **Horde**: MultiMesh enemies simulated in C++ (`HordeSim`, a GDExtension in `native/`) with a spatial grid, ramping waves, 3 enemy types. About 1 ms of sim per frame at 600 enemies and under 4 ms at 2,000; a GDScript twin takes over if the native library isn't available.
 - **Pooled projectiles** hit-tested against the spatial hash (no Area3D per bullet).
 - **Pickups**: scrap gems are magnet-pulled; parts must be walked over and auto-attach to the free socket that keeps you balanced, or get salvaged for scrap if nothing fits.
 - **Level-ups**: scrap fills the XP bar. Each level pauses and offers 3 cards (keys 1-3), or skip to repair 30% (R). Early cards are mostly **upgrades** to parts you already own (Mk I to Mk V, every copy at once); new parts get more likely each level (12% per card at level 2, up to 55%), so the robot gets stronger before it gets chaotic.
@@ -85,16 +85,18 @@ Weapons fire on their own.
 
 ## Open and run
 
-1. Install Godot 4.3+ (4.2 should work).
-2. Open the folder in Godot and press Play (F5).
+1. Install Godot 4.3. Clone with `git clone --recursive` (or run `git submodule update --init` afterwards); you only need the submodule to rebuild the C++.
+2. Open the folder in Godot and press Play (F5). The prebuilt native library in `bin/` loads automatically (Windows and Linux). See [native/README.md](native/README.md) to rebuild it.
 
 ## Tests
 
 ```
 godot --headless --fixed-fps 60 res://tests/run_tests.tscn
+RUSTBOUND_HORDE_BACKEND=gdscript godot --headless --fixed-fps 60 res://tests/run_tests.tscn
+godot --headless res://tests/bench_horde.tscn
 ```
 
-249 checks covering assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, chassis selection and features, the leg-combo and parts-list regressions, drive balance, and a 600-enemy benchmark. Exit code is non-zero on failure.
+271 checks covering the native and GDScript horde backends (side by side, they must agree), assembly math, socket rules, tipping, mass budget, a 20-second simulated run, pickups and the bench, heat, XP/level-ups, the main scene's level-up and build-mode flow (including clicking a socket through the camera), hardpoint grids, rotation, mirroring, frames, links, inertia, leg count, armor, stomp/ram/crush, gyro, rotator, chain sword, upgrades/offers/duplicate merging, strip-to-core, the energy pool (overcharge, drain, brownout), jets, drive modes and hybrids (including simulated walker/skater/rover/tank handling), signature parts, drivetrain pairs, hover, the four new weapons, upgrade paths, splash/slow/burn and trails, chassis selection and features, the leg-combo and parts-list regressions, drive balance, and a 600-enemy benchmark. Exit code is non-zero on failure.
 
 ## Content
 
@@ -114,10 +116,12 @@ scenes/levels/     prototype_arena.tscn (3D only; run main.tscn to play)
 scripts/data/      PartData, SocketDef, EnemyData
 scripts/robot/     RobotAssembly, PartInstance, RobotController, LocomotionProfile, CameraRig, PartVisuals, BuildMode
 scripts/behaviors/ PartBehavior, weapons/ (nailgun, chain_sword, flamethrower, boomerang, laser, drone_bay), utility/ (rotator, jet), signature/ (magnet, tesla, mortar, shield, maw)
-scripts/systems/   EnemyManager (incl. slow/burn), ProjectilePool, PickupManager, HazardField (trails), UpgradeOffers
+scripts/systems/   EnemyManager (waves, kills, contacts), HordeSimGD (GDScript horde fallback), ProjectilePool, PickupManager, HazardField (trails), UpgradeOffers
 scripts/ui/        Hud, LevelUpScreen, BuildPanel, UiStyle
 shaders/           ps2_vertex (wobble), ps2_post (dither + quantize)
-tests/             run_tests.tscn
+tests/             run_tests.tscn, bench_horde.tscn
+native/            C++ horde simulation (GDExtension) + godot-cpp submodule
+bin/               prebuilt native libraries + rustbound_native.gdextension
 tools/             content generator
 ```
 

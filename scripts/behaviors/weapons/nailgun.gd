@@ -66,7 +66,7 @@ func on_tick(delta: float) -> void:
 		var idx := enemies.find_nearest(origin, max_range, fwd, cos(deg_to_rad(arc_deg * 0.5)))
 		if idx < 0:
 			return
-		var target := enemies.pos[idx]
+		var target := enemies.get_pos(idx)
 		dir = (target - origin).normalized()
 	else:
 		if enemies.find_nearest(origin, max_range, fwd, cos(deg_to_rad(60.0))) < 0:

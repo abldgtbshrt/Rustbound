@@ -90,7 +90,7 @@ func _fly(delta: float) -> void:
 			for i in enemies.query_radius(node.global_position, 1.6):
 				if seen.has(i):
 					continue
-				var d := Vector2(enemies.pos[i].x - node.global_position.x, enemies.pos[i].z - node.global_position.z).length()
+				var d := Vector2(enemies.get_pos(i).x - node.global_position.x, enemies.get_pos(i).z - node.global_position.z).length()
 				if d > 0.9 + enemies.get_radius(i): # spinning blade ~0.9 m reach
 					continue
 				seen[i] = true

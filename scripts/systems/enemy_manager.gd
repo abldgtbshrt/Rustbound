@@ -1,8 +1,13 @@
 class_name EnemyManager
 extends Node3D
 
-## Data-oriented horde: enemies are rows in packed arrays, drawn with one
-## MultiMesh, and found through a spatial hash. No node per enemy.
+## Data-oriented horde: enemies are rows in flat arrays, drawn with one
+## MultiMesh, and found through a spatial grid. No node per enemy.
+##
+## The per-enemy work runs in a backend: the native HordeSim (C++, see
+## native/README.md) when the library is loaded, else HordeSimGD (same API in
+## GDScript). This node owns the gameplay side: spawning waves, kill rewards,
+## and handing robot contacts to RobotController.
 
 @export var enemy_types: Array[EnemyData] = []
 @export var max_enemies: int = 600
@@ -18,21 +23,22 @@ extends Node3D
 ## ...plus this many per second for every minute survived.
 @export var spawn_rate_per_minute: float = 4.0
 
-var count: int = 0
-var pos := PackedVector3Array()
-var vel := PackedVector3Array()
-var hp := PackedFloat32Array()
-var flash := PackedFloat32Array()
-var type_idx := PackedInt32Array()
-## Per-enemy timer the robot uses to rate-limit ram hits.
-var cooldown := PackedFloat32Array()
-## Status effects: speed multiplier while slowed, and burning damage per sec.
-var slow_t := PackedFloat32Array()
-var slow_mult := PackedFloat32Array()
-var burn_t := PackedFloat32Array()
-var burn_dps := PackedFloat32Array()
+## Which simulation backend to use: "auto" picks the native library when it's
+## loaded (bin/rustbound_native.gdextension) and falls back to GDScript.
+@export_enum("auto", "native", "gdscript") var backend: String = "auto"
 
-var _grid: Dictionary = {} # Vector2i -> PackedInt32Array
+## Enemy rows live in the backend (HordeSim in C++, or HordeSimGD). Read and
+## write them through the accessors below; there are no public arrays.
+var count: int:
+	get:
+		return _sim.get_count() if _sim != null else 0
+
+## Microseconds EnemyManager spent in its last physics step (for the perf
+## overlay and tests/bench_horde.tscn).
+var last_step_usec: int = 0
+
+## HordeSim (native) or HordeSimGD; both expose the same methods.
+var _sim: RefCounted
 var _spawn_accum := 0.0
 var _mm := MultiMesh.new()
 var _mm_instance := MultiMeshInstance3D.new()
@@ -42,16 +48,9 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	RunState.enemies = self
 	_rng.seed = RunState.run_seed if RunState.run_seed != 0 else randi()
-	pos.resize(max_enemies)
-	vel.resize(max_enemies)
-	hp.resize(max_enemies)
-	flash.resize(max_enemies)
-	type_idx.resize(max_enemies)
-	cooldown.resize(max_enemies)
-	slow_t.resize(max_enemies)
-	slow_mult.resize(max_enemies)
-	burn_t.resize(max_enemies)
-	burn_dps.resize(max_enemies)
+	_sim = create_backend(backend)
+	_sim.setup(max_enemies, cell_size, arena_half_extent)
+	_sync_types()
 
 	var mesh := PrismMesh.new() # wedge-shaped scrap bugs
 	mesh.size = Vector3(1.0, 1.0, 1.0)
@@ -73,63 +72,110 @@ func _exit_tree() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	_compact()
+	var t0 := Time.get_ticks_usec()
+	_sim.compact()
+	_sync_types()
 	if RunState.running and spawn_enabled:
 		_spawn_tick(delta)
-	_rebuild_grid()
 	_simulate(delta)
 	_update_multimesh()
+	last_step_usec = Time.get_ticks_usec() - t0
+
+
+## A fresh simulation backend. "auto" prefers the native library. The env var
+## RUSTBOUND_HORDE_BACKEND (gdscript | native) overrides it, e.g. for tests.
+static func create_backend(kind: String = "auto") -> RefCounted:
+	var forced := OS.get_environment("RUSTBOUND_HORDE_BACKEND")
+	if forced != "":
+		kind = forced
+	var native_ok := ClassDB.class_exists("HordeSim")
+	if kind == "native" and not native_ok:
+		push_warning("EnemyManager: native HordeSim not loaded; using GDScript")
+	if kind != "gdscript" and native_ok:
+		return ClassDB.instantiate("HordeSim")
+	return HordeSimGD.new()
+
+
+func backend_name() -> String:
+	return _sim.backend_name()
 
 
 # --- Public API ---------------------------------------------------------------
 
 func spawn(type_index: int, at: Vector3) -> int:
-	if count >= max_enemies or type_index < 0 or type_index >= enemy_types.size():
+	if type_index < 0 or type_index >= enemy_types.size():
 		return -1
-	var i := count
-	count += 1
-	var t := enemy_types[type_index]
-	pos[i] = Vector3(at.x, t.radius, at.z)
-	vel[i] = Vector3.ZERO
-	hp[i] = t.hp
-	flash[i] = 0.0
-	cooldown[i] = 0.0
-	slow_t[i] = 0.0
-	slow_mult[i] = 1.0
-	burn_t[i] = 0.0
-	burn_dps[i] = 0.0
-	type_idx[i] = type_index
-	return i
+	return _sim.spawn(type_index, at, enemy_types[type_index].hp)
 
 
 func is_alive(i: int) -> bool:
-	return i >= 0 and i < count and hp[i] > 0.0
+	return _sim.is_alive(i)
 
 
 func get_data(i: int) -> EnemyData:
-	return enemy_types[type_idx[i]]
+	return enemy_types[_sim.get_type(i)]
 
 
 func get_radius(i: int) -> float:
-	return enemy_types[type_idx[i]].radius
+	return enemy_types[_sim.get_type(i)].radius
 
 
 func alive_count() -> int:
-	var n := 0
-	for i in count:
-		if hp[i] > 0.0:
-			n += 1
-	return n
+	return _sim.alive_count()
+
+
+func get_pos(i: int) -> Vector3:
+	return _sim.get_pos(i)
+
+
+func set_pos(i: int, p: Vector3) -> void:
+	_sim.set_pos(i, p)
+
+
+func get_vel(i: int) -> Vector3:
+	return _sim.get_vel(i)
+
+
+func set_vel(i: int, v: Vector3) -> void:
+	_sim.set_vel(i, v)
+
+
+func get_hp(i: int) -> float:
+	return _sim.get_hp(i)
+
+
+func set_hp(i: int, v: float) -> void:
+	_sim.set_hp(i, v)
+
+
+func get_flash(i: int) -> float:
+	return _sim.get_flash(i)
+
+
+## Per-enemy timer the robot uses to rate-limit ram hits.
+func get_cooldown(i: int) -> float:
+	return _sim.get_cooldown(i)
+
+
+func set_cooldown(i: int, v: float) -> void:
+	_sim.set_cooldown(i, v)
+
+
+func get_slow_t(i: int) -> float:
+	return _sim.get_slow_t(i)
+
+
+func get_slow_mult(i: int) -> float:
+	return _sim.get_slow_mult(i)
+
+
+func get_burn_t(i: int) -> float:
+	return _sim.get_burn_t(i)
 
 
 ## Returns true if this hit killed the enemy.
 func damage(i: int, amount: float, knockback: Vector3 = Vector3.ZERO) -> bool:
-	if not is_alive(i):
-		return false
-	hp[i] -= amount
-	flash[i] = 0.12
-	vel[i] += knockback
-	if hp[i] <= 0.0:
+	if _sim.damage(i, amount, knockback):
 		_on_killed(i)
 		return true
 	return false
@@ -137,19 +183,12 @@ func damage(i: int, amount: float, knockback: Vector3 = Vector3.ZERO) -> bool:
 
 ## Slows an enemy to `mult` of its speed for `duration` s (strongest wins).
 func apply_slow(i: int, mult: float, duration: float) -> void:
-	if not is_alive(i):
-		return
-	if slow_t[i] <= 0.0 or mult < slow_mult[i]:
-		slow_mult[i] = clampf(mult, 0.05, 1.0)
-	slow_t[i] = maxf(slow_t[i], duration)
+	_sim.apply_slow(i, mult, duration)
 
 
 ## Sets an enemy on fire: `dps` for `duration` s (strongest wins).
 func apply_burn(i: int, dps: float, duration: float) -> void:
-	if not is_alive(i):
-		return
-	burn_dps[i] = maxf(burn_dps[i] if burn_t[i] > 0.0 else 0.0, dps)
-	burn_t[i] = maxf(burn_t[i], duration)
+	_sim.apply_burn(i, dps, duration)
 
 
 ## On-hit extras from a weapon or path: slow_mult/slow_dur, burn_dps/burn_dur.
@@ -165,83 +204,44 @@ func apply_hit_fx(i: int, fx: Dictionary) -> void:
 ## Damages every live enemy within `radius` (XZ, edge-inclusive) of `origin`,
 ## with 50% falloff at the edge, pushing them outward. Returns hits.
 func damage_radius(origin: Vector3, radius: float, amount: float, knockback: float = 0.0) -> int:
-	var hits := 0
-	for i in query_radius(origin, radius + 1.0):
-		var to := pos[i] - origin
-		to.y = 0.0
-		var d := to.length()
-		var reach := radius + get_radius(i)
-		if d > reach:
-			continue
-		var falloff := lerpf(1.0, 0.5, clampf(d / reach, 0.0, 1.0))
-		damage(i, amount * falloff, (to / maxf(d, 0.01)) * knockback)
-		hits += 1
+	var hits: int = _sim.damage_radius(origin, radius, amount, knockback)
+	_drain_kills()
 	return hits
 
 
 ## Indices of live enemies whose centers are within `radius` (XZ) of `origin`.
 func query_radius(origin: Vector3, radius: float) -> PackedInt32Array:
-	var out := PackedInt32Array()
-	var r2 := radius * radius
-	var c0 := _cell(origin - Vector3(radius, 0, radius))
-	var c1 := _cell(origin + Vector3(radius, 0, radius))
-	for cx in range(c0.x, c1.x + 1):
-		for cz in range(c0.y, c1.y + 1):
-			var bucket: PackedInt32Array = _grid.get(Vector2i(cx, cz), PackedInt32Array())
-			for i in bucket:
-				if hp[i] <= 0.0:
-					continue
-				var d := pos[i] - origin
-				if d.x * d.x + d.z * d.z <= r2:
-					out.append(i)
-	return out
+	return _sim.query_radius(origin, radius)
+
+
+## Live enemies touched by a beam from `origin` along `dir` (XZ, normalized)
+## for `reach` m, `width` wide plus each enemy's radius.
+func query_segment(origin: Vector3, dir: Vector3, reach: float, width: float) -> PackedInt32Array:
+	return _sim.query_segment(origin, dir, reach, width)
 
 
 ## Nearest live enemy within range whose direction lies inside a cone around
 ## `forward` (cos_half_arc = cos(arc/2); pass -1 for any direction).
 func find_nearest(origin: Vector3, max_range: float, forward: Vector3 = Vector3.FORWARD, cos_half_arc: float = -1.0) -> int:
-	var best := -1
-	var best_d2 := max_range * max_range
-	var f := Vector2(forward.x, forward.z).normalized()
-	for i in count:
-		if hp[i] <= 0.0:
-			continue
-		var dx := pos[i].x - origin.x
-		var dz := pos[i].z - origin.z
-		var d2 := dx * dx + dz * dz
-		if d2 >= best_d2:
-			continue
-		if cos_half_arc > -1.0 and d2 > 0.0001:
-			var inv := 1.0 / sqrt(d2)
-			if (dx * f.x + dz * f.y) * inv < cos_half_arc:
-				continue
-		best = i
-		best_d2 = d2
-	return best
+	return _sim.find_nearest(origin, max_range, forward, cos_half_arc)
 
 
 func clear_all() -> void:
-	count = 0
-	_grid.clear()
+	_sim.clear()
 	_update_multimesh()
 
 
 # --- Internals ----------------------------------------------------------------
 
-func _cell(p: Vector3) -> Vector2i:
-	return Vector2i(floori(p.x / cell_size), floori(p.z / cell_size))
-
-
-func _rebuild_grid() -> void:
-	_grid.clear()
-	for i in count:
-		var c := _cell(pos[i])
-		if _grid.has(c):
-			var b: PackedInt32Array = _grid[c]
-			b.append(i)
-			_grid[c] = b
-		else:
-			_grid[c] = PackedInt32Array([i])
+func _sync_types() -> void:
+	var radius := PackedFloat32Array()
+	var speed := PackedFloat32Array()
+	var color := PackedColorArray()
+	for t in enemy_types:
+		radius.append(t.radius)
+		speed.append(t.speed)
+		color.append(t.color)
+	_sim.set_types(radius, speed, color)
 
 
 func _simulate(delta: float) -> void:
@@ -249,75 +249,20 @@ func _simulate(delta: float) -> void:
 	var target := robot.global_position if robot != null else Vector3.ZERO
 	var robot_r := robot.get_body_radius() if robot != null else 0.5
 	var chase := robot != null and robot.alive
-	var steer := clampf(5.0 * delta, 0.0, 1.0)
+	_sim.step(delta, target, robot_r, chase)
+	_drain_kills() # burned to death this step
+	# Contact: the robot decides (ram, crush, armor), then no overlap.
+	var touching: PackedInt32Array = _sim.get_contacts()
+	if not touching.is_empty():
+		var dirs: PackedVector3Array = _sim.get_contact_dirs()
+		for k in touching.size():
+			robot.handle_enemy_contact(self, touching[k], dirs[k], delta)
+	_sim.resolve_contacts()
 
-	for i in count:
-		if hp[i] <= 0.0:
-			continue
-		var t := enemy_types[type_idx[i]]
-		var p := pos[i]
-		var to := Vector3(target.x - p.x, 0.0, target.z - p.z)
-		var d := to.length()
 
-		var desired := Vector3.ZERO
-		if chase and d > 0.001:
-			desired = to / d * t.speed
-
-		# Separation from up to 6 neighbors in this and adjacent cells.
-		var sep := Vector3.ZERO
-		var c := _cell(p)
-		var checked := 0
-		for ox in range(-1, 2):
-			for oz in range(-1, 2):
-				var bucket: PackedInt32Array = _grid.get(Vector2i(c.x + ox, c.y + oz), PackedInt32Array())
-				for j in bucket:
-					if j == i or hp[j] <= 0.0:
-						continue
-					var diff := p - pos[j]
-					diff.y = 0.0
-					var min_d := t.radius + enemy_types[type_idx[j]].radius
-					var dl := diff.length_squared()
-					if dl < min_d * min_d and dl > 0.000001:
-						sep += diff / sqrt(dl) * (min_d - sqrt(dl)) * 8.0
-						checked += 1
-						if checked >= 6:
-							break
-				if checked >= 6:
-					break
-			if checked >= 6:
-				break
-
-		if slow_t[i] > 0.0:
-			slow_t[i] -= delta
-			desired *= slow_mult[i]
-		if burn_t[i] > 0.0:
-			burn_t[i] -= delta
-			hp[i] -= burn_dps[i] * delta # no hit flash for damage over time
-			if hp[i] <= 0.0:
-				_on_killed(i)
-				continue
-		var v := vel[i].lerp(desired, steer) + sep * delta
-		p += v * delta
-		p.x = clampf(p.x, -arena_half_extent, arena_half_extent)
-		p.z = clampf(p.z, -arena_half_extent, arena_half_extent)
-		p.y = t.radius
-
-		# Contact: the robot decides (ram, crush, armor), then no overlap.
-		var contact := t.radius + robot_r
-		if chase and d < contact:
-			pos[i] = p
-			vel[i] = v
-			robot.handle_enemy_contact(self, i, -to, delta)
-			v = vel[i] # keep any ram knockback
-			if d > 0.001:
-				p -= to / d * (contact - d)
-		if cooldown[i] > 0.0:
-			cooldown[i] -= delta
-
-		pos[i] = p
-		vel[i] = v
-		if flash[i] > 0.0:
-			flash[i] -= delta
+func _drain_kills() -> void:
+	for i in _sim.take_kills():
+		_on_killed(i)
 
 
 func _spawn_tick(delta: float) -> void:
@@ -360,8 +305,8 @@ func _pick_type(t: float) -> int:
 
 
 func _on_killed(i: int) -> void:
-	var t := enemy_types[type_idx[i]]
-	var at := pos[i]
+	var t := get_data(i)
+	var at := get_pos(i)
 	RunState.kills += 1
 	EventBus.enemy_killed.emit(t, at)
 	var pickups := RunState.pickups
@@ -373,48 +318,8 @@ func _on_killed(i: int) -> void:
 				pickups.spawn_part(at, part)
 
 
-# Removes dead rows by swapping in the last live row. Runs at the start of the
-# frame so indices stay stable for everyone else during the frame.
-func _compact() -> void:
-	var i := 0
-	while i < count:
-		if hp[i] <= 0.0:
-			count -= 1
-			pos[i] = pos[count]
-			vel[i] = vel[count]
-			hp[i] = hp[count]
-			flash[i] = flash[count]
-			cooldown[i] = cooldown[count]
-			slow_t[i] = slow_t[count]
-			slow_mult[i] = slow_mult[count]
-			burn_t[i] = burn_t[count]
-			burn_dps[i] = burn_dps[count]
-			type_idx[i] = type_idx[count]
-		else:
-			i += 1
-
-
 func _update_multimesh() -> void:
 	_mm.visible_instance_count = count
 	var robot := RunState.robot
 	var target := robot.global_position if robot != null else Vector3.ZERO
-	for i in count:
-		var t := enemy_types[type_idx[i]]
-		var p := pos[i]
-		var look := Vector3(target.x - p.x, 0.0, target.z - p.z)
-		var b := Basis.IDENTITY
-		if look.length_squared() > 0.0001:
-			b = Basis.looking_at(look.normalized(), Vector3.UP)
-		# Prism points +Y; tip it forward so the wedge "noses" at the robot.
-		b = b * Basis(Vector3.RIGHT, -PI * 0.5)
-		var s := t.radius * 2.0
-		b = b * Basis.from_scale(Vector3(s, s * 1.2, s * 0.8))
-		_mm.set_instance_transform(i, Transform3D(b, p))
-		var col := t.color
-		if burn_t[i] > 0.0:
-			col = col.lerp(Color(1.0, 0.5, 0.1), 0.5)
-		elif slow_t[i] > 0.0:
-			col = col.lerp(Color(0.4, 0.7, 1.0), 0.5)
-		if flash[i] > 0.0:
-			col = Color.WHITE
-		_mm.set_instance_color(i, col)
+	_sim.upload_multimesh(_mm.get_rid(), target)
