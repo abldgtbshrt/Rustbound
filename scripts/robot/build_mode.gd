@@ -167,6 +167,7 @@ func exit() -> void:
 func select_bench(index: int) -> void:
 	_set_selected_part(null)
 	selected_bench = index if index >= 0 and index < RunState.inventory.size() else -1
+	RunState.mark_seen(selected_bench)
 	hovered = {}
 	_rebuild_markers()
 	selection_changed.emit()

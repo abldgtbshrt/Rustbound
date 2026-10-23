@@ -41,6 +41,7 @@ func _run() -> void:
 	await _test_paths_and_effects()
 	await _test_combo_and_list_fixes()
 	_test_drive_balance()
+	await _test_bench_pickups()
 	await _test_chassis_select()
 	await _bench_horde()
 	print("")
@@ -710,12 +711,16 @@ func _test_upgrades() -> void:
 	check(float(early_new) / float(total) < 0.3, "level 2 offers are mostly upgrades (%d%% new)" % int(100.0 * early_new / total))
 	check(late_new > early_new * 2, "level 10 offers more new parts (%d vs %d)" % [late_new, early_new])
 
-	# Walking over a part you already own upgrades it instead of adding a copy.
+	# Walking over a part you already own puts a spare on the bench; melt it
+	# there to upgrade.
 	var legs_before := robot.assembly.part_count
+	rs.inventory.clear()
 	rs.pickups.spawn_part(robot.global_position + Vector3(0.4, 0, 0), part("loco_biped_leg"))
 	for f in 45:
 		await get_tree().physics_frame
-	check(rs.get_tier(&"loco_biped_leg") == 2 and robot.assembly.part_count == legs_before, "duplicate leg pickup merges into Mk II")
+	check(rs.inventory.count(part("loco_biped_leg")) == 1 and rs.get_tier(&"loco_biped_leg") == 1 and robot.assembly.part_count == legs_before, "duplicate leg pickup lands on the bench")
+	var li: int = rs.inventory.find(part("loco_biped_leg"))
+	check(rs.melt_into_upgrade(li) and rs.get_tier(&"loco_biped_leg") == 2 and not rs.inventory.has(part("loco_biped_leg")), "melting the spare upgrades legs to Mk II")
 
 	# Strip to core and rebuild.
 	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
@@ -1285,7 +1290,7 @@ func _test_combo_and_list_fixes() -> void:
 	for b in panel._list.get_children():
 		if b is Button:
 			texts.append((b as Button).text)
-	check(texts.size() == 1 and String(texts[0]).begins_with("Hover Pads"), "hover pads listed on the bench %s" % [texts])
+	check(texts.size() == 1 and String(texts[0]).begins_with("NEW  Hover Pads"), "hover pads listed on the bench, marked NEW %s" % [texts])
 
 	# Wheels on the legs' feet: placing on one foot does both (was blocked).
 	rs.add_to_inventory(part("loco_wheel"))
@@ -1326,6 +1331,50 @@ func _test_combo_and_list_fixes() -> void:
 	check(r == rs.Acquired.ATTACHED and robot.assembly.locomotion.mode == LocomotionProfile.Mode.STOMPER, "auto-installed treads go on the legs' feet")
 	r = rs.acquire_part(part("loco_hover_pad"))
 	check(r == rs.Acquired.BENCH and robot.assembly.locomotion.conflict == "", "hover pads on a walker go to the bench instead of conflicting")
+	main.queue_free()
+	await get_tree().process_frame
+
+
+func _test_bench_pickups() -> void:
+	print("bench: every pickup lands, duplicates, NEW, melt")
+	var main: Node = await _open_main()
+	rs.enemies.spawn_enabled = false
+	rs.pickups.clear_all()
+	var robot: RobotController = rs.robot
+	var c := _chassis(robot)
+	var lt := get_node("/root/LootTable")
+	rs.inventory.clear()
+	# Own one strut already, then pick up another: it must show up (the bug).
+	robot.assembly.attach(part("frame_strut"), c, &"left_0_1")
+	rs.pickups.spawn_part(robot.global_position + Vector3(0.6, 0, 0), part("frame_strut"))
+	for f in 50:
+		await get_tree().physics_frame
+	check(rs.inventory.has(part("frame_strut")) and rs.get_tier(&"frame_strut") == 1, "a second strut lands on the bench")
+	# Every droppable part lands on the bench, even past the old 8-slot cap.
+	var n := 0
+	for p in lt.parts:
+		if p.category == PartData.Category.CHASSIS or p.category == PartData.Category.CORE:
+			continue
+		rs.pickups.spawn_part(robot.global_position + Vector3(0.6, 0, 0), p)
+		for f in 30:
+			await get_tree().physics_frame
+		n += 1
+	check(rs.inventory.size() == n + 1, "all %d parts picked up are on the bench (%d)" % [n, rs.inventory.size()])
+	check(rs.new_count() == rs.inventory.size(), "fresh pickups are marked NEW")
+	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
+	var panel: BuildPanel = main.get_node("BuildPanel")
+	bm.enter()
+	panel._tabs.current_tab = UiStyle.GROUPS.find("Weapons")
+	await get_tree().process_frame
+	check(panel._tabs.get_tab_title(UiStyle.GROUPS.find("Frame")).ends_with("*"), "tabs hiding new parts get a * (%s)" % panel._tabs.get_tab_title(UiStyle.GROUPS.find("Frame")))
+	var si: int = rs.inventory.find(part("frame_strut"))
+	bm.select_bench(si)
+	check(not rs.is_new(si), "selecting a part clears NEW")
+	check(rs.melt_block_reason(si) == "" and not panel._melt_btn.disabled, "spare strut can be melted (it's also on the robot)")
+	check(rs.melt_into_upgrade(si) and rs.get_tier(&"frame_strut") == 2, "melt -> Strut Mk II")
+	var lz: int = rs.inventory.find(part("gun_laser"))
+	check(rs.melt_block_reason(lz) == "you need another copy to upgrade", "can't melt your only copy")
+	bm.exit()
 	main.queue_free()
 	await get_tree().process_frame
 
