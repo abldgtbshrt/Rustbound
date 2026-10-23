@@ -92,5 +92,6 @@ func _draw_cone(on: bool, reach: float, arc: float) -> void:
 		return
 	var flick := 0.85 + 0.15 * sin(_t * 41.0)
 	var w := tan(deg_to_rad(arc * 0.5)) * reach * flick
-	# Cylinder points +Y; lay it along the part's -Z, wide end out.
-	_cone.transform = Transform3D(Basis(Vector3.RIGHT, -PI * 0.5) * Basis.from_scale(Vector3(w, reach, w * 0.5)), Vector3(0, 0.1, -reach * 0.5))
+	# Cylinder's narrow top is +Y. Rotate +Y onto +Z (back toward the
+	# nozzle) so the narrow end sits at the robot and the wide end flares out.
+	_cone.transform = Transform3D(Basis(Vector3.RIGHT, PI * 0.5) * Basis.from_scale(Vector3(w, reach, w * 0.5)), Vector3(0, 0.1, -reach * 0.5))

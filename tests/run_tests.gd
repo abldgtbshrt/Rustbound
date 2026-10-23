@@ -1093,6 +1093,11 @@ func _test_new_weapons() -> void:
 		saw_off_after = saw_off_after or (saw_on and not fb.is_firing())
 	check(em.hp[front] < 70.0 and is_equal_approx(em.hp[back], 70.0), "flame cone burns what's in front only (%.0f / %.0f)" % [em.hp[front], em.hp[back]])
 	check(saw_on and saw_off_after, "flamethrower fires in bursts")
+	# Cone mesh: narrow tip (+Y of the cylinder) at the nozzle, wide end out.
+	var cx: Transform3D = fb._cone.transform
+	var tip := cx * Vector3(0, 0.5, 0)
+	var mouth := cx * Vector3(0, -0.5, 0)
+	check(absf(tip.z) < 0.05 and mouth.z < -3.0, "flame cone starts narrow at the nozzle and widens outward (tip z %.2f, mouth z %.2f)" % [tip.z, mouth.z])
 	robot.assembly.detach(fl)
 	em.clear_all()
 
