@@ -128,7 +128,10 @@ func get_load_ratio() -> float:
 ## 1.0 when within capacity, 0.0 at double capacity (can't move).
 func get_speed_multiplier() -> float:
 	var load := get_load_ratio()
-	var m := 1.0 if load <= 1.0 else clampf(2.0 - load, 0.0, 1.0)
+	# Slowdown starts past the drive's load tolerance (treads: 2x capacity)
+	# and stops you one capacity later.
+	var tol := assembly.locomotion.load_tolerance
+	var m := 1.0 if load <= tol else clampf(tol + 1.0 - load, 0.0, 1.0)
 	return m * (brownout_speed_mult if browned_out else 1.0)
 
 
@@ -336,7 +339,7 @@ func _move_vehicle(hvel: Vector3, dir: Vector3, delta: float, accel: float, pivo
 			if diff < deg_to_rad(35.0):
 				target_speed = get_top_speed() * dir.length() * cos(diff)
 		else:
-			var authority := clampf(absf(speed) / 4.0, 0.25, 1.0)
+			var authority := clampf(absf(speed) / 3.0, 0.45, 1.0)
 			rotation.y = rotate_toward(rotation.y, target_yaw, turn * authority * delta)
 			target_speed = get_top_speed() * dir.length() if diff < deg_to_rad(110.0) else -get_top_speed() * 0.35
 		speed = move_toward(speed, target_speed, accel * delta)
@@ -572,6 +575,7 @@ func apply_recoil(impulse: Vector3) -> void:
 func take_damage(amount: float, from_dir: Vector3 = Vector3.ZERO) -> void:
 	if not alive or amount <= 0.0:
 		return
+	amount *= 1.0 - assembly.locomotion.damage_reduction
 	if from_dir != Vector3.ZERO:
 		amount = _shield_absorb(amount, from_dir)
 		amount *= 1.0 - assembly.armor_block_for(from_dir)
@@ -619,7 +623,7 @@ func heal(amount: float) -> void:
 
 
 func _on_assembly_changed() -> void:
-	var new_max := base_hp + assembly.max_hp
+	var new_max := (base_hp + assembly.max_hp) * assembly.hp_mult
 	if new_max > max_hp:
 		hp += new_max - max_hp # new armor arrives repaired
 	max_hp = new_max

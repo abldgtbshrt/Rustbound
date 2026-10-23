@@ -28,6 +28,14 @@ func param(key: String, default_value: Variant) -> Variant:
 	return v
 
 
+## Firing / effect arc in degrees, widened by the chassis (Carousel).
+func arc_param(default_value: float) -> float:
+	var arc := float(param("arc_deg", default_value))
+	if robot != null:
+		arc += robot.assembly.arc_bonus
+	return minf(arc, 360.0)
+
+
 ## On-hit extras (splash, slow, burn) gathered from params, for projectiles
 ## and melee hits.
 func hit_fx() -> Dictionary:

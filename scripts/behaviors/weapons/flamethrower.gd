@@ -45,7 +45,7 @@ func on_tick(delta: float) -> void:
 		return
 	var asm := robot.assembly
 	var reach := float(param("range", 5.0)) * asm.get_mod(part, "range_mult")
-	var arc := float(param("arc_deg", 50.0))
+	var arc := arc_param(50.0)
 	var origin := part.global_position
 	var fwd := part.get_facing_global()
 	if fwd == Vector3.ZERO:

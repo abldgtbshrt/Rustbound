@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_1kdh6"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_nplww"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_i2rbl"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_or1kg"]
 
-[sub_resource type="Resource" id="Resource_hrq1t"]
-script = ExtResource("2_nplww")
+[sub_resource type="Resource" id="Resource_eeqna"]
+script = ExtResource("2_or1kg")
 marker_name = &"end"
 type = 1
 size = 2
@@ -14,8 +14,8 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_h7vqc"]
-script = ExtResource("2_nplww")
+[sub_resource type="Resource" id="Resource_aahsj"]
+script = ExtResource("2_or1kg")
 marker_name = &"under"
 type = 3
 size = 2
@@ -25,8 +25,8 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_3oaif"]
-script = ExtResource("2_nplww")
+[sub_resource type="Resource" id="Resource_mblvx"]
+script = ExtResource("2_or1kg")
 marker_name = &"side_l"
 type = 1
 size = 1
@@ -36,8 +36,8 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_l77e3"]
-script = ExtResource("2_nplww")
+[sub_resource type="Resource" id="Resource_bh4gl"]
+script = ExtResource("2_or1kg")
 marker_name = &"side_r"
 type = 1
 size = 1
@@ -48,7 +48,7 @@ grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("1_1kdh6")
+script = ExtResource("1_i2rbl")
 id = &"frame_strut"
 display_name = "Strut"
 category = 7
@@ -77,7 +77,7 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_nplww")]([SubResource("Resource_hrq1t"), SubResource("Resource_h7vqc"), SubResource("Resource_3oaif"), SubResource("Resource_l77e3")])
+sockets = Array[ExtResource("2_or1kg")]([SubResource("Resource_eeqna"), SubResource("Resource_aahsj"), SubResource("Resource_mblvx"), SubResource("Resource_bh4gl")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}

@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/signature/scrap_maw.gd" id="1_57ivs"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_w0afw"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_tdqbw"]
+[ext_resource type="Script" path="res://scripts/behaviors/signature/scrap_maw.gd" id="1_gnyur"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_58f2f"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_atmj2"]
 
 [resource]
-script = ExtResource("2_w0afw")
+script = ExtResource("2_58f2f")
 id = &"sig_scrap_maw"
 display_name = "Scrap Maw"
 category = 3
@@ -34,9 +34,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("3_tdqbw")]([])
+sockets = Array[ExtResource("3_atmj2")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_57ivs")])
+behaviors = Array[Script]([ExtResource("1_gnyur")])
 params = {
 "arc_deg": 100.0,
 "bite_damage": 10.0,

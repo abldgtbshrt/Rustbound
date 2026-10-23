@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_c132n"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_rpd3o"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_q3lal"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_knpla"]
 
-[sub_resource type="Resource" id="Resource_mvhwk"]
-script = ExtResource("2_rpd3o")
+[sub_resource type="Resource" id="Resource_d41te"]
+script = ExtResource("2_knpla")
 marker_name = &"mount_shin"
 type = 1
 size = 1
@@ -14,8 +14,8 @@ grid = Vector2i(1, 1)
 grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
-[sub_resource type="Resource" id="Resource_cbgat"]
-script = ExtResource("2_rpd3o")
+[sub_resource type="Resource" id="Resource_mqerw"]
+script = ExtResource("2_knpla")
 marker_name = &"foot"
 type = 3
 size = 2
@@ -26,7 +26,7 @@ grid_u = Vector3(0.4, 0, 0)
 grid_v = Vector3(0, 0, 0.4)
 
 [resource]
-script = ExtResource("1_c132n")
+script = ExtResource("1_q3lal")
 id = &"loco_biped_leg"
 display_name = "Biped Legs"
 category = 2
@@ -46,16 +46,16 @@ armor_block = 0.0
 armor_arc_deg = 120.0
 neighbor_mods = {}
 drive = 1
-top_speed = 7.0
-thrust = 32.0
+top_speed = 6.5
+thrust = 30.0
 grip = 0.85
 jump_force = 7.5
-mass_capacity = 6.0
+mass_capacity = 5.0
 turn_rate_deg = 540.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_rpd3o")]([SubResource("Resource_mvhwk"), SubResource("Resource_cbgat")])
+sockets = Array[ExtResource("2_knpla")]([SubResource("Resource_d41te"), SubResource("Resource_mqerw")])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {

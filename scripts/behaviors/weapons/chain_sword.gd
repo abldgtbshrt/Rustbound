@@ -24,7 +24,7 @@ func on_tick(delta: float) -> void:
 		return
 	var asm := robot.assembly
 	var reach := float(param("reach", 2.4)) * asm.get_mod(part, "range_mult")
-	var arc := float(param("arc_deg", 110.0))
+	var arc := arc_param(110.0)
 	var dmg := float(param("damage", 20.0)) * asm.get_mod(part, "damage_mult")
 	var swing_time := float(param("swing_time", 0.5)) / maxf(asm.get_mod(part, "fire_rate_mult") * robot.get_overcharge_mult(), 0.1)
 	if robot.browned_out:

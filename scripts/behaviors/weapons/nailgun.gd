@@ -32,7 +32,7 @@ func on_tick(delta: float) -> void:
 	var damage := float(param("damage", 8.0))
 	var max_range := float(param("range", 16.0))
 	var speed := float(param("speed", 30.0))
-	var arc_deg := float(param("arc_deg", 200.0))
+	var arc_deg := arc_param(200.0)
 	var spread_deg := float(param("spread_deg", 3.0))
 	var recoil := float(param("recoil", 0.5))
 	var pierce := int(param("pierce", 0))

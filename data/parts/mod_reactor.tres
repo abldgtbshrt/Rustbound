@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_52ouk"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_c60rn"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_v5t4y"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_a752f"]
 
 [resource]
-script = ExtResource("1_52ouk")
+script = ExtResource("1_v5t4y")
 id = &"mod_reactor"
 display_name = "Reactor"
 category = 4
@@ -36,7 +36,7 @@ turn_rate_deg = 540.0
 attach_type = 2
 alt_attach_types = Array[int]([1])
 attach_size = 1
-sockets = Array[ExtResource("2_c60rn")]([])
+sockets = Array[ExtResource("2_a752f")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}

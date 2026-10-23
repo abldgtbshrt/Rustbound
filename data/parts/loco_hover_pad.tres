@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_74t62"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_vgavu"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_3i1pa"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_ioq5i"]
 
 [resource]
-script = ExtResource("1_74t62")
+script = ExtResource("1_3i1pa")
 id = &"loco_hover_pad"
 display_name = "Hover Pads"
 category = 2
@@ -28,12 +28,12 @@ top_speed = 9.0
 thrust = 28.0
 grip = 0.15
 jump_force = 0.0
-mass_capacity = 5.0
+mass_capacity = 7.0
 turn_rate_deg = 360.0
 attach_type = 3
 alt_attach_types = Array[int]([])
 attach_size = 1
-sockets = Array[ExtResource("2_vgavu")]([])
+sockets = Array[ExtResource("2_ioq5i")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {

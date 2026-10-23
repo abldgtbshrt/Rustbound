@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=3 format=3]
 
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_51my2"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_b17wq"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="1_avrxo"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="2_8pren"]
 
 [resource]
-script = ExtResource("1_51my2")
+script = ExtResource("1_avrxo")
 id = &"mod_battery"
 display_name = "Battery Pack"
 category = 4
@@ -33,7 +33,7 @@ turn_rate_deg = 540.0
 attach_type = 2
 alt_attach_types = Array[int]([1])
 attach_size = 1
-sockets = Array[ExtResource("2_b17wq")]([])
+sockets = Array[ExtResource("2_8pren")]([])
 component_slots = 1
 behaviors = Array[Script]([])
 params = {}

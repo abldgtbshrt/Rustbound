@@ -75,7 +75,13 @@ func _parts() -> Array[PartData]:
 	out.append(core)
 
 	# --- Chassis -------------------------------------------------------------
-	var box := _part("chassis_box", "Box Chassis", PartData.Category.CHASSIS, STRUCT, 2)
+	# Chassis are picked at the start of a run and locked in. Each has a
+	# feature (params read by RobotAssembly) and a starter layout:
+	# [part id, socket, yaw steps].
+	var box := _part("chassis_box", "Bulwark", PartData.Category.CHASSIS, STRUCT, 2)
+	box.params = {"feature": "Armored box: +25% max HP, armor plates block 15% more. The most hardpoints.",
+		"hp_mult": 1.25, "armor_bonus": 0.15,
+		"starter": [["loco_biped_leg", "bottom_0_1", 0], ["gun_nail", "top_1_0", 0], ["gun_nail", "top_1_1", 4]]}
 	box.mass = 3.0
 	box.hp = 40.0
 	box.drop_weight = 0.0
@@ -95,7 +101,11 @@ func _parts() -> Array[PartData]:
 	box.upgrade_per_tier = {"hp": 0.35}
 	out.append(box)
 
-	var tower := _part("chassis_tower", "Tower Chassis", PartData.Category.CHASSIS, STRUCT, 2)
+	var tower := _part("chassis_tower", "Spire", PartData.Category.CHASSIS, STRUCT, 2)
+	tower.cpu_output = 1
+	tower.params = {"feature": "Tall sightlines: weapons get +25% range and +1 CPU. Top-heavy, so it tips easily.",
+		"range_mult": 1.25,
+		"starter": [["loco_biped_leg", "bottom_0_0", 0], ["gun_nail", "top", 0], ["gun_nail", "left_0_1", 2]]}
 	tower.mass = 4.0
 	tower.hp = 50.0
 	tower.drop_weight = 0.0
@@ -112,15 +122,58 @@ func _parts() -> Array[PartData]:
 	tower.upgrade_per_tier = {"hp": 0.35}
 	out.append(tower)
 
+	var ring := _part("chassis_ring", "Carousel", PartData.Category.CHASSIS, STRUCT, 2)
+	ring.mass = 3.2
+	ring.hp = 40.0
+	ring.drop_weight = 0.0
+	ring.params = {"feature": "Round hull with 8 rim mounts facing every way: weapon arcs +40°, turns 25% faster.",
+		"arc_bonus": 40.0, "turn_rate_mult": 1.25,
+		"starter": [["loco_biped_leg", "bottom_0_0", 0], ["gun_nail", "rim_0", 0], ["gun_nail", "rim_4", 0]]}
+	_vis(ring, PartData.VisualShape.CYLINDER, Vector3(1.4, 0.6, 1.4), Vector3.ZERO, Color(0.5, 0.55, 0.5))
+	var rim: Array[SocketDef] = []
+	for k in 8:
+		var a := deg_to_rad(45.0 * k)
+		rim.append(_sock("rim_%d" % k, MOUNT, Vector3(-sin(a), 0.0, -cos(a)) * 0.7, 2, Vector3(0, 45.0 * k, 0)))
+	rim.append_array([
+		_sock("top", MOUNT, Vector3(0.0, 0.3, 0.1), 2),
+		_grid("bottom", LOCO, Vector3(0.0, -0.3, 0.0), Vector2i(2, 2), Vector3(0.8, 0, 0), Vector3(0, 0, 0.6), 2),
+		_grid("internal", INTERNAL, Vector3.ZERO, Vector2i(2, 1), Vector3(0.5, 0, 0), Vector3.ZERO, 1),
+		_sock("head", STRUCT, Vector3(0.0, 0.3, -0.4), 1),
+	])
+	ring.sockets = rim
+	ring.upgrade_per_tier = {"hp": 0.35}
+	out.append(ring)
+
+	var spine := _part("chassis_spine", "Lancer", PartData.Category.CHASSIS, STRUCT, 2)
+	spine.mass = 3.6
+	spine.hp = 40.0
+	spine.drop_weight = 0.0
+	spine.params = {"feature": "Long spine with room for 3 drivetrain pairs: forward-facing weapons deal +20% damage. Turns 15% slower.",
+		"front_damage_mult": 1.2, "turn_rate_mult": 0.85,
+		"starter": [["loco_biped_leg", "bottom_0_1", 0], ["gun_nail", "front", 0], ["gun_nail", "back", 0]]}
+	_vis(spine, PartData.VisualShape.BOX, Vector3(0.6, 0.5, 2.0), Vector3.ZERO, Color(0.55, 0.45, 0.4))
+	spine.sockets = [
+		_grid("top", MOUNT, Vector3(0.0, 0.25, 0.0), Vector2i(1, 4), Vector3.ZERO, Vector3(0, 0, 0.45), 2),
+		_grid("left", MOUNT, Vector3(-0.3, 0.0, 0.0), Vector2i(1, 4), Vector3.ZERO, Vector3(0, 0, 0.45), 2, Vector3(0, 90, 0)),
+		_grid("right", MOUNT, Vector3(0.3, 0.0, 0.0), Vector2i(1, 4), Vector3.ZERO, Vector3(0, 0, 0.45), 2, Vector3(0, -90, 0)),
+		_sock("front", MOUNT, Vector3(0.0, 0.0, -1.0), 2),
+		_sock("back", MOUNT, Vector3(0.0, 0.0, 1.0), 2, Vector3(0, 180, 0)),
+		_grid("bottom", LOCO, Vector3(0.0, -0.25, 0.0), Vector2i(2, 3), Vector3(0.6, 0, 0), Vector3(0, 0, 0.7), 2),
+		_grid("internal", INTERNAL, Vector3.ZERO, Vector2i(1, 3), Vector3.ZERO, Vector3(0, 0, 0.6), 1),
+		_sock("head", STRUCT, Vector3(0.0, 0.25, -0.85), 1),
+	]
+	spine.upgrade_per_tier = {"hp": 0.35}
+	out.append(spine)
+
 	# --- Locomotion (all ~0.8 m tall so mixed builds stand level) ------------
 	var leg := _part("loco_biped_leg", "Biped Leg", PartData.Category.LOCOMOTION, LOCO, 1)
 	leg.mass = 1.5
 	leg.hp = 15.0
-	leg.top_speed = 7.0
-	leg.thrust = 32.0
+	leg.top_speed = 6.5
+	leg.thrust = 30.0
 	leg.grip = 0.85
 	leg.jump_force = 7.5
-	leg.mass_capacity = 6.0
+	leg.mass_capacity = 5.0
 	leg.turn_rate_deg = 540.0
 	leg.drop_weight = 1.0
 	leg.tags = PackedStringArray(["leg"])
@@ -141,14 +194,14 @@ func _parts() -> Array[PartData]:
 	var wheel := _part("loco_wheel", "Scrap Wheel", PartData.Category.LOCOMOTION, LOCO, 1)
 	wheel.mass = 1.2
 	wheel.hp = 10.0
-	wheel.top_speed = 11.0
-	wheel.thrust = 22.0
-	wheel.grip = 0.35
+	wheel.top_speed = 12.0
+	wheel.thrust = 30.0
+	wheel.grip = 0.55
 	wheel.jump_force = 0.0
-	wheel.mass_capacity = 5.0
-	wheel.turn_rate_deg = 360.0
+	wheel.mass_capacity = 9.0
+	wheel.turn_rate_deg = 300.0
 	wheel.drop_weight = 0.9
-	wheel.params = {"ram": 0.5} # ram damage scales with speed
+	wheel.params = {"ram": 0.8} # ram damage scales with speed
 	wheel.drive = PartData.Drive.WHEEL
 	wheel.paired = true
 	wheel.display_name = "Scrap Wheels"
@@ -160,11 +213,11 @@ func _parts() -> Array[PartData]:
 	var tread := _part("loco_tread", "Tread Unit", PartData.Category.LOCOMOTION, LOCO, 2)
 	tread.mass = 3.0
 	tread.hp = 30.0
-	tread.top_speed = 5.0
-	tread.thrust = 45.0
+	tread.top_speed = 6.0
+	tread.thrust = 55.0
 	tread.grip = 1.0
-	tread.mass_capacity = 12.0
-	tread.turn_rate_deg = 200.0
+	tread.mass_capacity = 14.0
+	tread.turn_rate_deg = 260.0
 	tread.drop_weight = 0.6
 	tread.tags = PackedStringArray(["anchored"])
 	tread.params = {"crush": 1.0} # grinds small enemies
@@ -415,7 +468,7 @@ func _parts() -> Array[PartData]:
 	hover.top_speed = 9.0
 	hover.thrust = 28.0
 	hover.grip = 0.15
-	hover.mass_capacity = 5.0
+	hover.mass_capacity = 7.0
 	hover.turn_rate_deg = 360.0
 	hover.drop_weight = 0.7
 	hover.params = {"hover_height": 0.5}

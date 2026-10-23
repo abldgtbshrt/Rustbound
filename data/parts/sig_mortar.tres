@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="PartData" load_steps=4 format=3]
 
-[ext_resource type="Script" path="res://scripts/behaviors/signature/mortar.gd" id="1_q18a2"]
-[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_7ku6c"]
-[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_fd5ek"]
+[ext_resource type="Script" path="res://scripts/behaviors/signature/mortar.gd" id="1_sxfmo"]
+[ext_resource type="Script" path="res://scripts/data/part_data.gd" id="2_e33ne"]
+[ext_resource type="Script" path="res://scripts/data/socket_def.gd" id="3_golfn"]
 
 [resource]
-script = ExtResource("2_7ku6c")
+script = ExtResource("2_e33ne")
 id = &"sig_mortar"
 display_name = "Mortar"
 category = 3
@@ -34,9 +34,9 @@ turn_rate_deg = 540.0
 attach_type = 1
 alt_attach_types = Array[int]([])
 attach_size = 2
-sockets = Array[ExtResource("3_fd5ek")]([])
+sockets = Array[ExtResource("3_golfn")]([])
 component_slots = 1
-behaviors = Array[Script]([ExtResource("1_q18a2")])
+behaviors = Array[Script]([ExtResource("1_sxfmo")])
 params = {
 "arc_deg": 160.0,
 "damage": 35.0,

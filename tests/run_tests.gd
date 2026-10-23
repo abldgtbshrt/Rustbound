@@ -39,6 +39,9 @@ func _run() -> void:
 	await _test_hover()
 	await _test_new_weapons()
 	await _test_paths_and_effects()
+	await _test_combo_and_list_fixes()
+	_test_drive_balance()
+	await _test_chassis_select()
 	await _bench_horde()
 	print("")
 	print("%d checks, %d failed" % [_checks, _failures])
@@ -78,6 +81,17 @@ func make_assembly(chassis: String, layout: Array) -> RobotAssembly:
 				a.attach(part(e[0]), inst, sn)
 				break
 	return a
+
+
+## Main scene with the default chassis (Bulwark) picked.
+func _open_main(pick: int = 0) -> Node:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	get_tree().root.add_child(main)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	(main.get_node("ChassisSelect") as ChassisSelect).choose(pick)
+	await get_tree().process_frame
+	return main
 
 
 func _test_assembly_math() -> void:
@@ -158,9 +172,9 @@ func _test_tip_ratio() -> void:
 
 func _test_overload() -> void:
 	print("mass budget")
-	var a := make_assembly("chassis_box", [["loco_wheel", "bottom_0_1"]])
+	var a := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"]])
 	var cap := a.locomotion.mass_capacity
-	check(a.total_mass > cap, "one wheel can't carry a box chassis (%.1f > %.1f)" % [a.total_mass, cap])
+	check(a.total_mass > cap, "one leg can't carry a box chassis (%.1f > %.1f)" % [a.total_mass, cap])
 	a.free()
 
 
@@ -344,10 +358,7 @@ func _test_progression() -> void:
 
 func _test_main_scene_flow() -> void:
 	print("main scene: level-up, build mode, PS2 view")
-	var main: Node = load("res://scenes/main.tscn").instantiate()
-	get_tree().root.add_child(main)
-	await get_tree().process_frame
-	await get_tree().process_frame
+	var main: Node = await _open_main()
 	var container: SubViewportContainer = main.get_node("Screen")
 	check(container.stretch_shrink >= 1 and main.get_node("Screen/GameViewport/PrototypeArena") != null, "arena renders inside the low-res viewport (shrink %d)" % container.stretch_shrink)
 	var robot: RobotController = rs.robot
@@ -630,10 +641,7 @@ func _test_utility_parts() -> void:
 
 func _test_build_mode_rework() -> void:
 	print("build mode: rotate, mirror, ghost")
-	var main: Node = load("res://scenes/main.tscn").instantiate()
-	get_tree().root.add_child(main)
-	await get_tree().process_frame
-	await get_tree().process_frame
+	var main: Node = await _open_main()
 	rs.enemies.spawn_enabled = false
 	var robot: RobotController = rs.robot
 	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
@@ -668,10 +676,7 @@ func _test_build_mode_rework() -> void:
 
 func _test_upgrades() -> void:
 	print("upgrades: tiers, offers, duplicate merge, strip to core")
-	var main: Node = load("res://scenes/main.tscn").instantiate()
-	get_tree().root.add_child(main)
-	await get_tree().process_frame
-	await get_tree().process_frame
+	var main: Node = await _open_main()
 	rs.enemies.spawn_enabled = false
 	rs.pickups.clear_all()
 	var robot: RobotController = rs.robot
@@ -717,9 +722,10 @@ func _test_upgrades() -> void:
 	rs.inventory.clear()
 	bm.enter()
 	var n := bm.strip_all()
-	check(robot.assembly.part_count == 1 and rs.inventory.size() == n and n >= 4, "strip to core benches everything (%d items, legs as one pair)" % n)
-	bm.select_bench(rs.inventory.find(part("chassis_box")))
-	check(bm.attach_selected(robot.assembly.root, &"chassis"), "rebuild: chassis back on the core")
+	check(robot.assembly.part_count == 2 and rs.inventory.size() == n and n >= 3, "strip leaves core + chassis, benches the rest (%d items, legs as one pair)" % n)
+	check(not rs.inventory.has(part("chassis_box")), "the chassis stays on: it's locked for the run")
+	bm.select_part(_chassis(robot))
+	check(not bm.detach_selected() and _chassis(robot) != null, "the chassis can't be detached")
 	bm.select_bench(rs.inventory.find(part("loco_biped_leg")))
 	check(bm.attach_selected(_chassis(robot), &"bottom_0_1"), "rebuild: legs back on")
 	bm.exit()
@@ -820,7 +826,7 @@ func _test_drive_modes() -> void:
 	for cell in [&"bottom_0_1", &"bottom_1_1"]:
 		sk.attach(part("loco_wheel"), c.get_child_in(cell), &"foot")
 	check(sk.locomotion.mode == LocomotionProfile.Mode.SKATER, "wheels on leg feet = Skater")
-	check(sk.locomotion.can_jump and sk.locomotion.ram > 0.0 and sk.locomotion.stomp > 0.0, "skater jumps, rams and stomps")
+	check(sk.locomotion.can_jump and sk.locomotion.ram > 0.0 and sk.locomotion.stomp == 0.0, "skater jumps and rams, but can't stomp")
 	check(sk.locomotion.top_speed > walker.locomotion.top_speed * 1.4 and sk.locomotion.coast_drag < 1.0, "skater is fast and glides")
 
 	var st := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"]])
@@ -1256,6 +1262,132 @@ func _test_paths_and_effects() -> void:
 	em.enemy_types[2].speed = 2.2
 	scene.queue_free()
 	await get_tree().process_frame
+
+
+func _test_combo_and_list_fixes() -> void:
+	print("regressions: leg combos, auto-install, parts list")
+	var main: Node = await _open_main()
+	rs.enemies.spawn_enabled = false
+	rs.pickups.clear_all()
+	var robot: RobotController = rs.robot
+	var bm: BuildMode = main.get_node("Screen/GameViewport/PrototypeArena/BuildMode")
+	var panel: BuildPanel = main.get_node("BuildPanel")
+	var c := _chassis(robot)
+	rs.inventory.clear()
+
+	# Overworld hover pickup shows up in the parts list (used to crash it).
+	rs.pickups.spawn_part(robot.global_position + Vector3(0.5, 0, 0), part("loco_hover_pad"))
+	for f in 60:
+		await get_tree().physics_frame
+	bm.enter()
+	await get_tree().process_frame
+	var texts: Array = []
+	for b in panel._list.get_children():
+		if b is Button:
+			texts.append((b as Button).text)
+	check(texts.size() == 1 and String(texts[0]).begins_with("Hover Pads"), "hover pads listed on the bench %s" % [texts])
+
+	# Wheels on the legs' feet: placing on one foot does both (was blocked).
+	rs.add_to_inventory(part("loco_wheel"))
+	bm.select_bench(rs.inventory.find(part("loco_wheel")))
+	var leg := c.get_child_in(&"bottom_0_1")
+	var foot_markers := 0
+	for m in bm._markers:
+		if m["compatible"] and (m["inst"] as PartInstance).data.drive == PartData.Drive.LEG:
+			foot_markers += 1
+	check(foot_markers == 2, "both leg feet light up for wheels (%d)" % foot_markers)
+	check(bm.attach_selected(leg, &"foot") and robot.assembly.locomotion.mode == LocomotionProfile.Mode.SKATER, "wheels on leg feet make a Skater")
+	bm.select_part(leg.get_child_in(&"foot"))
+	bm.detach_selected()
+	check(robot.assembly.locomotion.mode == LocomotionProfile.Mode.WALKER and rs.inventory.count(part("loco_wheel")) == 1, "detaching the skates gives back one pair")
+
+	# Tabs: categories filter the list, counts in the titles.
+	rs.inventory.clear()
+	for id in ["gun_nail", "gun_laser", "mod_battery", "armor_plate", "frame_strut"]:
+		rs.add_to_inventory(part(id))
+	panel._tabs.current_tab = UiStyle.GROUPS.find("Weapons")
+	await get_tree().process_frame
+	var shown := 0
+	for b in panel._list.get_children():
+		shown += 1 if b is Button else 0
+	check(shown == 2, "Weapons tab shows only the 2 weapons (%d)" % shown)
+	check(panel._tabs.get_tab_title(0) == "All 5", "tab titles count parts (%s)" % panel._tabs.get_tab_title(0))
+	check(UiStyle.part_group(part("mod_battery")) == "Power" and UiStyle.part_group(part("armor_plate")) == "Defense" and UiStyle.part_group(part("frame_strut")) == "Frame", "parts sort into the right tabs")
+	bm.select_bench(rs.inventory.find(part("gun_laser")))
+	check(panel._detail_title.text.begins_with("Lance Laser") and panel._detail.text.contains("Fits"), "selecting a bench part fills the detail pane")
+	check(UiStyle.predict_drive(part("loco_wheel"), robot.assembly).contains("SKATER"), "detail pane predicts the drive a wheel pair would make")
+	check(UiStyle.predict_drive(part("loco_tread"), robot.assembly).contains("STOMPER"), "and treads -> Stomper")
+	bm.exit()
+
+	# Auto-install never creates a conflicting drive.
+	rs.inventory.clear()
+	rs.auto_install = true
+	var r: int = rs.acquire_part(part("loco_tread"))
+	check(r == rs.Acquired.ATTACHED and robot.assembly.locomotion.mode == LocomotionProfile.Mode.STOMPER, "auto-installed treads go on the legs' feet")
+	r = rs.acquire_part(part("loco_hover_pad"))
+	check(r == rs.Acquired.BENCH and robot.assembly.locomotion.conflict == "", "hover pads on a walker go to the bench instead of conflicting")
+	main.queue_free()
+	await get_tree().process_frame
+
+
+func _test_drive_balance() -> void:
+	print("drive balance")
+	var walk := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"]])
+	var rove := make_assembly("chassis_box", [["loco_wheel", "bottom_0_1"], ["loco_wheel", "bottom_1_1"]])
+	var tank := make_assembly("chassis_box", [["loco_tread", "bottom_0_1"], ["loco_tread", "bottom_1_1"]])
+	check(rove.locomotion.top_speed >= 12.0 and rove.locomotion.top_speed > walk.locomotion.top_speed * 1.6, "wheels are much faster (%.1f vs %.1f)" % [rove.locomotion.top_speed, walk.locomotion.top_speed])
+	check(rove.locomotion.mass_capacity > walk.locomotion.mass_capacity * 1.5, "wheels carry more than legs")
+	check(tank.locomotion.mass_capacity > rove.locomotion.mass_capacity and tank.locomotion.load_tolerance == 2.0, "treads haul the most, no slowdown until 2x")
+	check(tank.locomotion.damage_reduction >= 0.25, "tread hull shrugs off 25% damage")
+	var sk := make_assembly("chassis_box", [["loco_biped_leg", "bottom_0_1"], ["loco_biped_leg", "bottom_1_1"]])
+	var cc := sk.root.get_child_in(&"chassis")
+	for cell in [&"bottom_0_1", &"bottom_1_1"]:
+		sk.attach(part("loco_wheel"), cc.get_child_in(cell), &"foot")
+	check(sk.locomotion.top_speed > walk.locomotion.top_speed and sk.locomotion.top_speed < rove.locomotion.top_speed, "skater sits between walker and rover (%.1f)" % sk.locomotion.top_speed)
+	check(sk.locomotion.grip < walk.locomotion.grip, "skater trades grip for speed")
+	for x in [walk, rove, tank, sk]:
+		x.free()
+
+
+func _test_chassis_select() -> void:
+	print("chassis select")
+	var expect := {&"chassis_box": "Bulwark", &"chassis_tower": "Spire", &"chassis_ring": "Carousel", &"chassis_spine": "Lancer"}
+	for k in 4:
+		var main: Node = await _open_main(k)
+		var robot: RobotController = rs.robot
+		var asm := robot.assembly
+		var cs: ChassisSelect = main.get_node("ChassisSelect")
+		check(cs.choices.size() == 4 and not cs.is_open() and not get_tree().paused, "4 chassis offered; picking closes and unpauses")
+		var cid: StringName = rs.chassis_id
+		check(asm.chassis != null and asm.chassis.data.id == cid and expect.has(cid), "%s locked in" % expect.get(cid, "?"))
+		var guns: Array = []
+		for p in asm.get_all_parts():
+			if p.data.id == &"gun_nail":
+				guns.append(p)
+		check(guns.size() == 2 and asm.locomotion.mode == LocomotionProfile.Mode.WALKER and is_equal_approx(robot.hp, robot.max_hp), "%s starts with legs + 2 nailguns at full HP" % expect[cid])
+		match cid:
+			&"chassis_box":
+				check(asm.hp_mult == 1.25 and asm.armor_bonus > 0.1, "Bulwark: +25% HP, better armor")
+			&"chassis_tower":
+				check(is_equal_approx(asm.get_mod(guns[0], "range_mult"), 1.25) and asm.cpu_capacity >= 3, "Spire: +25% range, extra CPU")
+			&"chassis_ring":
+				check(asm.arc_bonus == 40.0, "Carousel: wider arcs")
+				var gun_b: NailgunBehavior = guns[0].behaviors[0]
+				check(gun_b.arc_param(120.0) == 160.0, "arc bonus reaches the weapons")
+			&"chassis_spine":
+				await get_tree().physics_frame
+				var front := 0.0
+				var back := 0.0
+				for g in guns:
+					var m := asm.get_mod(g, "damage_mult")
+					if (g as PartInstance).parent_socket == &"front":
+						front = m
+					else:
+						back = m
+				check(is_equal_approx(front, 1.2) and is_equal_approx(back, 1.0), "Lancer: front gun +20%%, rear gun normal (%.2f / %.2f)" % [front, back])
+				check(asm.chassis.data.get_sockets().filter(func(s): return s.type == PartData.SocketType.LOCOMOTION).size() == 6, "Lancer has room for 3 drive pairs")
+		main.queue_free()
+		await get_tree().process_frame
 
 
 ## Informational: average frame cost with a full horde (not a pass/fail check,

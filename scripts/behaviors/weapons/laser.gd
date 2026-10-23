@@ -38,7 +38,7 @@ func on_tick(delta: float) -> void:
 	if fwd == Vector3.ZERO:
 		fwd = -robot.global_basis.z
 	var aim := fwd
-	var target := enemies.find_nearest(origin, reach, fwd, cos(deg_to_rad(float(param("arc_deg", 40.0)) * 0.5)))
+	var target := enemies.find_nearest(origin, reach, fwd, cos(deg_to_rad(arc_param(40.0) * 0.5)))
 	if target < 0:
 		_charge = 0.0
 		return
